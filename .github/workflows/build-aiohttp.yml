@@ -3,10 +3,10 @@ name: Build aiohttp Android Wheels
 on:
   workflow_dispatch:
     inputs:
-      aiohttp_version:
-        description: 'aiohttp version tag to build (e.g., v3.10.5)'
+      version:
+        description: 'aiohttp version tag to build (e.g., 3.13.5)'
         required: true
-        default: 'v3.10.5'
+        default: '3.13.5'
 
 jobs:
   build-android-wheels:
@@ -14,14 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Checkout aiohttp source
-        uses: actions/checkout@v4
-        with:
-          repository: aio-libs/aiohttp
-          ref: ${{ inputs.aiohttp_version }}
-          # We need full history for setuptools-scm to determine the version correctly
-          fetch-depth: 0 
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -29,6 +21,15 @@ jobs:
 
       - name: Install cibuildwheel
         run: python -m pip install cibuildwheel
+
+      - name: Download and Unpack Sdist
+        run: |
+          # Download the specific source distribution
+          pip download --no-binary :all: --no-deps aiohttp==${{ inputs.version }}
+          # Unpack it (the filename is usually aiohttp-X.X.X.tar.gz)
+          tar -xvf aiohttp-${{ inputs.version }}.tar.gz
+          # Move contents to current dir so cibuildwheel finds it
+          mv aiohttp-${{ inputs.version }}/* .
 
       - name: Build Android Wheels
         env:
@@ -44,5 +45,5 @@ jobs:
       - name: Upload Wheels
         uses: actions/upload-artifact@v4
         with:
-          name: aiohttp-${{ inputs.aiohttp_version }}-android-wheels
+          name: aiohttp-${{ inputs.version }}-android-wheels
           path: ./wheelhouse/*.whl
