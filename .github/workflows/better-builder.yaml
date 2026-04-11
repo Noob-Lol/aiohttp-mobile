@@ -76,7 +76,7 @@ jobs:
   #    (matrix: aiohttp + its C deps)
   # ─────────────────────────────────────────────
   build-android:
-    name: Android / ${{ matrix.package }} / ${{ matrix.arch }}
+    name: Android / ${{ matrix.package.name }} / ${{ matrix.arch }}
     needs: resolve-version
     if: needs.resolve-version.outputs.skip == 'false'
     runs-on: ubuntu-latest
@@ -159,8 +159,6 @@ jobs:
           CIBW_ARCHS_ANDROID: ${{ matrix.arch }}
           CIBW_BUILD_FRONTEND: build
           CIBW_TEST_SKIP: '*'
-          # Pass the resolved aiohttp version so aiohttp's setup can find it
-          AIOHTTP_NO_EXTENSIONS: '0'
         run: python -m cibuildwheel --output-dir wheelhouse
 
       - name: Upload artifact
@@ -198,7 +196,7 @@ jobs:
           - name: aiohttp
             pypi_name: aiohttp
             pin: '${{ needs.resolve-version.outputs.version }}'
-        arch: [arm64, x86_64]  # arm64 = device, x86_64 = simulator
+        arch: [arm64_iphoneos, arm64_iphonesimulator, x86_64_iphonesimulator]
 
     steps:
       - name: Set up Python 3.14
@@ -251,7 +249,6 @@ jobs:
           CIBW_ARCHS_IOS: ${{ matrix.arch }}
           CIBW_BUILD_FRONTEND: build
           CIBW_TEST_SKIP: '*'
-          AIOHTTP_NO_EXTENSIONS: '0'
         run: python -m cibuildwheel --output-dir wheelhouse
 
       - name: Upload artifact
