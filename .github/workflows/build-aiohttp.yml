@@ -33,14 +33,10 @@ jobs:
       - name: Build Android Wheels
         env:
           CIBW_PLATFORM: android
-          # Target standard 64-bit ARM for modern Android devices
-          CIBW_ARCHS_ANDROID: aarch64 
+          # Correct Android ABI naming convention
+          CIBW_ARCHS_ANDROID: arm64_v8a 
           
-          # Android CI testing requires spinning up a hardware-accelerated emulator.
-          # For a PoC compilation test, it is highly recommended to skip this.
           CIBW_TEST_SKIP: "*android*"
-          
-          # cibuildwheel needs Cython to build the extensions
           CIBW_BUILD_FRONTEND: build
           
         run: python -m cibuildwheel --output-dir wheelhouse
