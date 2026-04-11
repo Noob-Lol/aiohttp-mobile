@@ -159,6 +159,7 @@ jobs:
           CIBW_ARCHS_ANDROID: ${{ matrix.arch }}
           CIBW_BUILD_FRONTEND: build
           CIBW_TEST_SKIP: '*'
+          ANDROID_API_LEVEL: '24'
         run: python -m cibuildwheel --output-dir wheelhouse
 
       - name: Upload artifact
