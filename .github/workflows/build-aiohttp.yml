@@ -1,0 +1,52 @@
+name: Build aiohttp Android Wheels
+
+on:
+  workflow_dispatch:
+    inputs:
+      aiohttp_version:
+        description: 'aiohttp version tag to build (e.g., v3.10.5)'
+        required: true
+        default: 'v3.10.5'
+
+jobs:
+  build-android-wheels:
+    name: Build Android Wheels
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout aiohttp source
+        uses: actions/checkout@v4
+        with:
+          repository: aio-libs/aiohttp
+          ref: ${{ inputs.aiohttp_version }}
+          # We need full history for setuptools-scm to determine the version correctly
+          fetch-depth: 0 
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Install cibuildwheel
+        run: python -m pip install cibuildwheel
+
+      - name: Build Android Wheels
+        env:
+          CIBW_PLATFORM: android
+          # Target standard 64-bit ARM for modern Android devices
+          CIBW_ARCHS_ANDROID: aarch64 
+          
+          # Android CI testing requires spinning up a hardware-accelerated emulator.
+          # For a PoC compilation test, it is highly recommended to skip this.
+          CIBW_TEST_SKIP: "*android*"
+          
+          # cibuildwheel needs Cython to build the extensions
+          CIBW_BUILD_FRONTEND: build
+          
+        run: python -m cibuildwheel --output-dir wheelhouse
+
+      - name: Upload Wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: aiohttp-${{ inputs.aiohttp_version }}-android-wheels
+          path: ./wheelhouse/*.whl
