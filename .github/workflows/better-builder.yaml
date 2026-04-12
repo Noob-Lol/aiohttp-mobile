@@ -300,29 +300,44 @@ jobs:
           VERSION: ${{ needs.resolve-version.outputs.version }}
         run: |
           TAG="v${VERSION}"
-          BODY="## aiohttp ${VERSION} — Android + iOS wheels
 
-          Built packages:
-          - \`aiohttp\` ${VERSION}
-          - \`yarl\` (latest compatible)
-          - \`multidict\` (latest compatible)
-          - \`frozenlist\` (latest compatible)
+          # Collect actual built versions from wheel filenames
+          pkg_versions() {
+            find dist/ -name "${1}-*.whl" | head -1 | \
+              sed -E 's|.*/'$1'-([^-]+)-.*|\1|'
+          }
+          VER_AIOHTTP=$(pkg_versions aiohttp)
+          VER_YARL=$(pkg_versions yarl)
+          VER_MULTIDICT=$(pkg_versions multidict)
+          VER_FROZENLIST=$(pkg_versions frozenlist)
+          VER_PROPCACHE=$(pkg_versions propcache)
+
+          BODY="## aiohttp ${VER_AIOHTTP} — Android + iOS wheels
+
+          ### Built packages
+          | Package | Version |
+          |---|---|
+          | \`aiohttp\` | ${VER_AIOHTTP} |
+          | \`yarl\` | ${VER_YARL} |
+          | \`multidict\` | ${VER_MULTIDICT} |
+          | \`frozenlist\` | ${VER_FROZENLIST} |
+          | \`propcache\` | ${VER_PROPCACHE} |
 
           ### Android ABIs
-          - \`arm64-v8a\` (physical devices)
+          - \`arm64_v8a\` (physical devices)
           - \`x86_64\` (emulators)
 
           ### iOS architectures
-          - \`arm64\` (physical devices)
-          - \`x86_64\` (simulators)
+          - \`arm64_iphoneos\` (physical devices)
+          - \`arm64_iphonesimulator\` (simulators)
+          - \`x86_64_iphonesimulator\` (simulators)
 
           Auto-built by GitHub Actions from PyPI sdists.
           "
 
-          # Create release (update if already exists due to force_rebuild)
           gh release create "$TAG" dist/*.whl \
             --repo "$GITHUB_REPOSITORY" \
-            --title "aiohttp ${VERSION} mobile wheels" \
+            --title "aiohttp ${VER_AIOHTTP} mobile wheels" \
             --notes "$BODY" \
             --latest \
           || gh release upload "$TAG" dist/*.whl \
@@ -339,55 +354,83 @@ jobs:
       #
       - name: Update PEP 503 simple index
         env:
-          VERSION: ${{ needs.resolve-version.outputs.version }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           python3 - <<'EOF'
-          import os, glob, hashlib, html
+          import os, hashlib, html
           from pathlib import Path
           from urllib.parse import quote
 
-          dist_dir  = Path("dist")
-          pages_dir = Path("gh-pages-index/simple")
-          pages_dir.mkdir(parents=True, exist_ok=True)
+          repo       = os.environ["GITHUB_REPOSITORY"]
+          base_url   = f"https://github.com/{repo}/releases/download"
+          dist_dir   = Path("dist")
+          pages_dir  = Path("gh-pages-index")
+          simple_dir = pages_dir / "simple"
+          simple_dir.mkdir(parents=True, exist_ok=True)
 
-          packages = {}
+          # Group wheels by package name, track all release tags seen
+          packages = {}   # pkg_name -> [(tag, whl_path), ...]
           for whl in sorted(dist_dir.glob("*.whl")):
-              # wheel filename: {name}-{ver}-{pytag}-{abitag}-{platformtag}.whl
-              pkg_name = whl.name.split("-")[0].replace("_", "-").lower()
-              packages.setdefault(pkg_name, []).append(whl)
+              # wheel: {dist}-{version}-{pytag}-{abitag}-{platform}.whl
+              parts    = whl.name.split("-")
+              pkg_name = parts[0].replace("_", "-").lower()
+              tag      = f"v{parts[1]}"
+              packages.setdefault(pkg_name, []).append((tag, whl))
 
-          # Per-package pages
-          for pkg, wheels in packages.items():
-              pkg_dir = pages_dir / pkg
+          # Per-package simple index
+          for pkg, entries in packages.items():
+              pkg_dir = simple_dir / pkg
               pkg_dir.mkdir(exist_ok=True)
               links = []
-              for whl in sorted(wheels):
-                  sha256 = hashlib.sha256(whl.read_bytes()).hexdigest()
+              for tag, whl in sorted(entries):
+                  sha256    = hashlib.sha256(whl.read_bytes()).hexdigest()
+                  href      = f"{base_url}/{tag}/{quote(whl.name)}#sha256={sha256}"
                   links.append(
-                      f'<a href="../../releases/download/v{os.environ["VERSION"]}'
-                      f'/{quote(whl.name)}#sha256={sha256}"'
-                      f' data-requires-python=">=3.11">{html.escape(whl.name)}</a>'
+                      f'<a href="{href}" data-requires-python=">=3.11">'
+                      f'{html.escape(whl.name)}</a>'
                   )
               (pkg_dir / "index.html").write_text(
                   "<!DOCTYPE html><html><head><meta charset='utf-8'>"
                   f"<title>Links for {pkg}</title></head><body>"
                   f"<h1>Links for {pkg}</h1>\n"
-                  + "\n".join(links)
-                  + "\n</body></html>\n"
+                  + "<br>\n".join(links) + "\n"
+                  + "</body></html>\n"
               )
 
-          # Root index
-          root_links = "\n".join(
+          # /simple/ root index
+          pkg_links = "\n".join(
               f'<a href="{pkg}/">{pkg}</a>' for pkg in sorted(packages)
+          )
+          (simple_dir / "index.html").write_text(
+              "<!DOCTYPE html><html><head><meta charset='utf-8'>"
+              "<title>Simple Index</title></head><body>"
+              "<h1>Simple Index</h1>\n"
+              + pkg_links + "\n"
+              + "</body></html>\n"
+          )
+
+          # / root page (human-readable)
+          pkg_rows = "\n".join(
+              f"<tr><td><a href='simple/{pkg}/'>{pkg}</a></td>"
+              f"<td>{len(entries)} wheel(s)</td></tr>"
+              for pkg, entries in sorted(packages.items())
           )
           (pages_dir / "index.html").write_text(
               "<!DOCTYPE html><html><head><meta charset='utf-8'>"
               "<title>Mobile Python Wheels</title></head><body>"
-              "<h1>Mobile Python Wheels — Simple Index</h1>\n"
-              + root_links
-              + "\n</body></html>\n"
+              "<h1>Mobile Python Wheels</h1>"
+              "<p>Android + iOS wheels for aiohttp and its C dependencies.</p>"
+              "<p>Install via pip:<br>"
+              f"<code>pip install aiohttp --extra-index-url "
+              f"https://{repo.split('/')[0]}.github.io/{repo.split('/')[1]}/simple/</code></p>"
+              "<table border='1' cellpadding='6'>"
+              "<tr><th>Package</th><th>Wheels</th></tr>\n"
+              + pkg_rows + "\n"
+              + "</table>"
+              "<p><a href='simple/'>Browse simple index</a></p>"
+              "</body></html>\n"
           )
-          print("Generated index for:", list(packages.keys()))
+          print("Generated index for:", sorted(packages.keys()))
           EOF
 
       - name: Deploy index to GitHub Pages
