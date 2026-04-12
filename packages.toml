@@ -31,9 +31,10 @@ name = "orjson"
 # name = "uvloop"
 # fix env
 
-[[package]]
-name = "psutil"
-cibw_before_build = "python -c 'import pathlib;q=chr(34);f=pathlib.Path(\"{package}/psutil/_common.py\");t=f.read_text();f.write_text(t.replace(f\"startswith({q}linux{q})\",f\"startswith(({q}linux{q}, {q}android{q}))\"))'"
+# [[package]]
+# name = "psutil"
+# cibw_before_build = "python -c 'import pathlib;q=chr(34);f=pathlib.Path(\"{package}/psutil/_common.py\");t=f.read_text();f.write_text(t.replace(f\"startswith({q}linux{q})\",f\"startswith(({q}linux{q}, {q}android{q}))\"))'"
+# sed is broken, this command also fails
 
 [[package]]
 name = "msgspec"
