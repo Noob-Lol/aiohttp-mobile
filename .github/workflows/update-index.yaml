@@ -1,0 +1,159 @@
+name: Update Simple Index
+
+on:
+  workflow_run:
+    workflows: ["Build Android Wheels"]
+    types: [completed]
+
+  workflow_dispatch:
+
+concurrency:
+  group: update-simple-index
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  update-index:
+    name: Rebuild PEP 503 Index
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Generate simple index from all releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 - <<'PYEOF'
+          import html
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+          from urllib.parse import quote
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          pages_dir = Path("gh-pages-index")
+          simple_dir = pages_dir / "simple"
+          simple_dir.mkdir(parents=True, exist_ok=True)
+
+          # Fetch ALL releases (paginated, 100 per page)
+          releases_json = subprocess.check_output(
+              ["gh", "release", "list",
+               "--repo", repo,
+               "--limit", "999",
+               "--json", "tagName"],
+              text=True,
+          )
+          releases = json.loads(releases_json)
+
+          if not releases:
+              print("No releases found, nothing to index.")
+              raise SystemExit(0)
+
+          # For each release, fetch assets with their digests
+          # packages dict: normalized_name -> [(whl_filename, download_url, sha256), ...]
+          packages: dict[str, list[tuple[str, str, str]]] = {}
+
+          for rel in releases:
+              tag = rel["tagName"]
+              assets_json = subprocess.check_output(
+                  ["gh", "release", "view", tag,
+                   "--repo", repo,
+                   "--json", "assets"],
+                  text=True,
+              )
+              assets = json.loads(assets_json).get("assets", [])
+
+              for asset in assets:
+                  name = asset["name"]
+                  if not name.endswith(".whl"):
+                      continue
+
+                  download_url = asset["browserDownloadUrl"]
+                  # GitHub API exposes digest as "sha256:HEX" since June 2025
+                  digest_raw = asset.get("digest", "")
+                  sha256 = ""
+                  if digest_raw.startswith("sha256:"):
+                      sha256 = digest_raw[len("sha256:"):]
+
+                  # Normalize package name (PEP 503)
+                  pkg_name = name.split("-")[0].replace("_", "-").lower()
+                  packages.setdefault(pkg_name, []).append((name, download_url, sha256))
+
+          # Generate per-package index pages
+          for pkg, wheels in sorted(packages.items()):
+              pkg_dir = simple_dir / pkg
+              pkg_dir.mkdir(exist_ok=True)
+              links = []
+              for whl_name, url, sha256 in sorted(wheels, key=lambda w: w[0]):
+                  href = url
+                  if sha256:
+                      href += f"#sha256={sha256}"
+                  links.append(
+                      f'<a href="{href}" data-requires-python="&gt;=3.13">'
+                      f"{html.escape(whl_name)}</a>"
+                  )
+              (pkg_dir / "index.html").write_text(
+                  "<!DOCTYPE html><html><head><meta charset='utf-8'>"
+                  f"<title>Links for {pkg}</title></head><body>"
+                  f"<h1>Links for {pkg}</h1>\n"
+                  + "<br>\n".join(links) + "\n"
+                  + "</body></html>\n"
+              )
+
+          # Generate /simple/ root index
+          pkg_links = "\n".join(
+              f'<a href="{pkg}/">{pkg}</a>' for pkg in sorted(packages)
+          )
+          (simple_dir / "index.html").write_text(
+              "<!DOCTYPE html><html><head><meta charset='utf-8'>"
+              "<title>Simple Index</title></head><body>"
+              "<h1>Simple Index</h1>\n"
+              + pkg_links + "\n"
+              + "</body></html>\n"
+          )
+
+          # Generate / root page (human-readable)
+          pkg_rows = "\n".join(
+              f"<tr><td><a href='simple/{pkg}/'>{pkg}</a></td>"
+              f"<td>{len(wheels)} wheel(s)</td></tr>"
+              for pkg, wheels in sorted(packages.items())
+          )
+          owner, repo_name = repo.split("/")
+          (pages_dir / "index.html").write_text(
+              "<!DOCTYPE html><html><head><meta charset='utf-8'>"
+              "<title>Mobile Python Wheels</title></head><body>"
+              "<h1>Mobile Python Wheels</h1>"
+              "<p>Android wheels for aiohttp and its C dependencies.</p>"
+              "<p>Install via pip:<br>"
+              f"<code>pip install aiohttp --extra-index-url "
+              f"https://{owner}.github.io/{repo_name}/simple/</code></p>"
+              "<table border='1' cellpadding='6'>"
+              "<tr><th>Package</th><th>Wheels</th></tr>\n"
+              + pkg_rows + "\n"
+              + "</table>"
+              "<p><a href='simple/'>Browse simple index</a></p>"
+              "</body></html>\n"
+          )
+
+          print(f"Generated index for: {sorted(packages.keys())}")
+          total_wheels = sum(len(w) for w in packages.values())
+          print(f"Total wheels indexed: {total_wheels}")
+          PYEOF
+
+      - name: Deploy index to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: gh-pages-index
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'chore: rebuild wheel index'

@@ -1,0 +1,21 @@
+# packages.toml
+# Packages to build Android wheels for, checked daily against PyPI.
+#
+# Fields:
+#   pypi_name  – exact PyPI package name (required)
+#   pin        – lock to a specific version; omit to always build latest
+
+[[package]]
+pypi_name = "frozenlist"
+
+[[package]]
+pypi_name = "multidict"
+
+[[package]]
+pypi_name = "propcache"
+
+[[package]]
+pypi_name = "yarl"
+
+[[package]]
+pypi_name = "aiohttp"

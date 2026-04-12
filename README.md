@@ -19,19 +19,11 @@ Pre-built Android and iOS Python wheels for **aiohttp** and its C-extension depe
 | Android | `arm64-v8a` (devices), `x86_64` (emulators) |
 | iOS | `arm64_iphoneos` (devices), `arm64_iphonesimulator`, `x86_64_iphonesimulator` |
 
-Python version: **3.14**
+Python: **CP3.13**, **CP3.14** (what cibuildwheel currently supports for Android)
 
 ---
 
 ## Installation
-
-### Option A — GitHub Releases (manual download)
-
-Download `.whl` files from the [Releases page](../../releases) and install them with `pip install <file>.whl`.
-
-### Option B — PEP 503 simple index (pip / poetry / uv)
-
-After enabling GitHub Pages on this repo (Settings → Pages → Source: `gh-pages` branch, `/ (root)`), you can point pip at the generated index:
 
 ```bash
 pip install aiohttp \
@@ -42,8 +34,9 @@ For `pyproject.toml` (uv / poetry):
 ```toml
 [[tool.uv.index]]
 url = "https://noob-lol.github.io/aiohttp-mobile/simple/"
-explicit = true
 ```
+
+Wheels are also attached to each [GitHub Release](../../releases), tagged `{package}-v{version}`.
 
 ---
 

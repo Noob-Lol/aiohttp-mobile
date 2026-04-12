@@ -1,443 +1,184 @@
-name: Build aiohttp Mobile Wheels (Android + iOS)
+name: Build Android Wheels
 
 on:
-  # Auto-trigger: check for new aiohttp releases every day at 06:00 UTC
   schedule:
-    - cron: '0 6 * * *'
+    - cron: '0 6 * * *'   # daily: check all packages for new PyPI releases
 
-  # Also allow manual runs with an explicit version override
   workflow_dispatch:
     inputs:
+      package:
+        description: 'Package name to build (leave blank to check all in packages.toml)'
+        required: false
+        default: ''
       version:
-        description: 'aiohttp version to build (leave blank to auto-detect latest)'
+        description: 'Exact version (only used with package input; blank = latest)'
         required: false
         default: ''
       force_rebuild:
-        description: 'Force rebuild even if release already exists'
+        description: 'Rebuild even if release already exists'
         required: false
         default: false
         type: boolean
 
-# Only one build at a time; a newer run cancels the previous one.
 concurrency:
-  group: build-mobile-wheels
+  group: build-android-wheels
   cancel-in-progress: true
 
-# Needed to create GitHub Releases and push tags
 permissions:
   contents: write
 
 jobs:
-  # ─────────────────────────────────────────────
-  # 1. Resolve which version we should build
-  # ─────────────────────────────────────────────
-  resolve-version:
-    name: Resolve Version
+  # ───────────────────────────────────────────────────────────────────────────
+  # 1. Resolve: check each package against existing releases, emit build matrix
+  # ───────────────────────────────────────────────────────────────────────────
+  resolve:
+    name: Resolve
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.resolve.outputs.version }}
-      skip:    ${{ steps.resolve.outputs.skip }}
+      matrix:       ${{ steps.resolve.outputs.matrix }}
+      any_to_build: ${{ steps.resolve.outputs.any_to_build }}
+
     steps:
-      - name: Resolve aiohttp version
+      - uses: actions/checkout@v6
+
+      - uses: astral-sh/setup-uv@v8.0.0
+
+      - name: Run resolve.py
         id: resolve
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          INPUT_VERSION: ${{ inputs.version }}
-          FORCE_REBUILD: ${{ inputs.force_rebuild }}
         run: |
-          set -euo pipefail
+          uv run resolve.py \
+            ${{ inputs.package && format('--package "{0}"', inputs.package) || '' }} \
+            ${{ inputs.version && format('--version "{0}"', inputs.version) || '' }} \
+            ${{ inputs.force_rebuild == true && '--force' || '' }}
 
-          if [[ -n "$INPUT_VERSION" ]]; then
-            VERSION="$INPUT_VERSION"
-            echo "Using manually supplied version: $VERSION"
-          else
-            VERSION=$(curl -fsSL https://pypi.org/pypi/aiohttp/json | \
-                      python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])")
-            echo "Latest aiohttp on PyPI: $VERSION"
-          fi
-
-          # Check whether a release for this version already exists in THIS repo
-          RELEASE_TAG="v${VERSION}"
-          RELEASE_EXISTS=$(gh release view "$RELEASE_TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            --json tagName --jq '.tagName' 2>/dev/null || echo "")
-
-          if [[ -n "$RELEASE_EXISTS" && "$FORCE_REBUILD" != "true" ]]; then
-            echo "Release $RELEASE_TAG already exists. Skipping build."
-            echo "skip=true"  >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
-
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
-  # ─────────────────────────────────────────────
-  # 2. Build Android wheels for ONE package
-  #    (matrix: aiohttp + its C deps)
-  # ─────────────────────────────────────────────
-  build-android:
-    name: Android / ${{ matrix.package.name }} / ${{ matrix.arch }}
-    needs: resolve-version
-    if: needs.resolve-version.outputs.skip == 'false'
+  # ───────────────────────────────────────────────────────────────────────────
+  # 2. Build: one job per (package x arch)
+  # ───────────────────────────────────────────────────────────────────────────
+  build:
+    name: ${{ matrix.pkg.pypi_name }} ${{ matrix.pkg.version }} / ${{ matrix.arch }}
+    needs: resolve
+    if: needs.resolve.outputs.any_to_build == 'true'
     runs-on: ubuntu-latest
 
     strategy:
       fail-fast: false
       matrix:
-        # aiohttp's C-extension dependencies + aiohttp itself.
-        # Versions are pinned to what aiohttp requires; adjust as needed.
-        package:
-          - name: frozenlist
-            pypi_name: frozenlist
-            pin: ''            # empty = latest compatible
-          - name: multidict
-            pypi_name: multidict
-            pin: ''
-          - name: propcache
-            pypi_name: propcache
-            pin: ''
-          - name: yarl
-            pypi_name: yarl
-            pin: ''
-          - name: aiohttp
-            pypi_name: aiohttp
-            pin: '${{ needs.resolve-version.outputs.version }}'
+        pkg:  ${{ fromJson(needs.resolve.outputs.matrix).include }}
         arch: [arm64_v8a, x86_64]
 
     steps:
-      - name: Set up Python 3.14
-        uses: actions/setup-python@v5
+      - if: matrix.pkg.pypi_name == '__skip__'
+        run: echo "Nothing to build." && exit 0
+
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.14'
 
+      - uses: astral-sh/setup-uv@v8.0.0
+
+      - name: Cache uv (cibuildwheel install)
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ hashFiles('**/packages.toml') }}
+          restore-keys: uv-${{ runner.os }}-
+
       - name: Install cibuildwheel
-        run: python -m pip install cibuildwheel
+        run: uv tool install cibuildwheel
 
-      # ── Resolve exact package version (if not pinned) ──────────────────
-      - name: Resolve package version
-        id: pkg
-        run: |
-          PKG="${{ matrix.package.pypi_name }}"
-          PIN="${{ matrix.package.pin }}"
-          if [[ -n "$PIN" ]]; then
-            VER="$PIN"
-          else
-            VER=$(curl -fsSL "https://pypi.org/pypi/${PKG}/json" | \
-                  python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])")
-          fi
-          echo "version=$VER" >> "$GITHUB_OUTPUT"
-
-      # ── Cache the compiled wheel so reruns are fast ─────────────────────
-      - name: Cache wheel
-        id: cache
-        uses: actions/cache@v4
+      - name: Cache built wheel
+        id: wheel-cache
+        uses: actions/cache@v5
         with:
           path: wheelhouse
-          key: android-${{ matrix.arch }}-${{ matrix.package.pypi_name }}-${{ steps.pkg.outputs.version }}-py314
+          key: wheel-android-${{ matrix.arch }}-${{ matrix.pkg.pypi_name }}-${{ matrix.pkg.version }}-cp313-cp314
 
-      - name: Download sdist
-        if: steps.cache.outputs.cache-hit != 'true'
+      - name: Download and unpack sdist
+        if: steps.wheel-cache.outputs.cache-hit != 'true'
         run: |
-          PKG="${{ matrix.package.pypi_name }}"
-          VER="${{ steps.pkg.outputs.version }}"
-          pip download --no-binary :all: --no-deps "${PKG}==${VER}"
-          # Support both .tar.gz and .zip sdists
-          if ls "${PKG}-${VER}.tar.gz" 2>/dev/null; then
+          PKG="${{ matrix.pkg.pypi_name }}"
+          VER="${{ matrix.pkg.version }}"
+          uv download --no-binary :all: --no-deps "${PKG}==${VER}" --dest .
+          if compgen -G "${PKG}-${VER}.tar.gz" > /dev/null; then
             tar -xf "${PKG}-${VER}.tar.gz"
           else
             unzip -q "${PKG}-${VER}.zip"
           fi
-          # Flatten into CWD
           shopt -s dotglob
           mv "${PKG}-${VER}/"* . 2>/dev/null || true
           rmdir "${PKG}-${VER}" 2>/dev/null || true
 
-      - name: Build Android wheel (${{ matrix.arch }})
-        if: steps.cache.outputs.cache-hit != 'true'
+      - name: Build wheel
+        if: steps.wheel-cache.outputs.cache-hit != 'true'
         env:
-          CIBW_PLATFORM: android
-          CIBW_ARCHS_ANDROID: ${{ matrix.arch }}
+          CIBW_PLATFORM:       android
+          CIBW_ARCHS_ANDROID:  ${{ matrix.arch }}
           CIBW_BUILD_FRONTEND: build
-          CIBW_TEST_SKIP: '*'
-          ANDROID_API_LEVEL: '24'
-        run: python -m cibuildwheel --output-dir wheelhouse
+          CIBW_TEST_SKIP:      '*'
+          ANDROID_API_LEVEL:   '24'
+        run: cibuildwheel --output-dir wheelhouse
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: android-${{ matrix.arch }}-${{ matrix.package.pypi_name }}-${{ steps.pkg.outputs.version }}
+          name: ${{ matrix.pkg.pypi_name }}-${{ matrix.pkg.version }}-android-${{ matrix.arch }}
           path: wheelhouse/*.whl
           if-no-files-found: error
 
-  # ─────────────────────────────────────────────
-  # 3. Build iOS wheels (same package matrix)
-  # ─────────────────────────────────────────────
-  build-ios:
-    name: iOS / ${{ matrix.package.name }} / ${{ matrix.arch }}
-    needs: resolve-version
-    if: needs.resolve-version.outputs.skip == 'false'
-    runs-on: macos-15   # Apple Silicon runner; Xcode 16+
+  # ───────────────────────────────────────────────────────────────────────────
+  # 3. Publish: create a GitHub Release per package
+  # ───────────────────────────────────────────────────────────────────────────
+  publish:
+    name: Publish ${{ matrix.pkg.pypi_name }} ${{ matrix.pkg.version }}
+    needs: [resolve, build]
+    if: needs.resolve.outputs.any_to_build == 'true'
+    runs-on: ubuntu-latest
 
     strategy:
       fail-fast: false
       matrix:
-        package:
-          - name: frozenlist
-            pypi_name: frozenlist
-            pin: ''
-          - name: multidict
-            pypi_name: multidict
-            pin: ''
-          - name: propcache
-            pypi_name: propcache
-            pin: ''
-          - name: yarl
-            pypi_name: yarl
-            pin: ''
-          - name: aiohttp
-            pypi_name: aiohttp
-            pin: '${{ needs.resolve-version.outputs.version }}'
-        arch: [arm64_iphoneos, arm64_iphonesimulator, x86_64_iphonesimulator]
+        pkg: ${{ fromJson(needs.resolve.outputs.matrix).include }}
 
     steps:
-      - name: Set up Python 3.14
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.14'
+      - if: matrix.pkg.pypi_name == '__skip__'
+        run: echo "Nothing to publish." && exit 0
 
-      - name: Install cibuildwheel
-        run: python -m pip install cibuildwheel
-
-      - name: Resolve package version
-        id: pkg
-        run: |
-          PKG="${{ matrix.package.pypi_name }}"
-          PIN="${{ matrix.package.pin }}"
-          if [[ -n "$PIN" ]]; then
-            VER="$PIN"
-          else
-            VER=$(curl -fsSL "https://pypi.org/pypi/${PKG}/json" | \
-                  python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])")
-          fi
-          echo "version=$VER" >> "$GITHUB_OUTPUT"
-
-      - name: Cache wheel
-        id: cache
-        uses: actions/cache@v4
-        with:
-          path: wheelhouse
-          key: ios-${{ matrix.arch }}-${{ matrix.package.pypi_name }}-${{ steps.pkg.outputs.version }}-py314
-
-      - name: Download sdist
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: |
-          PKG="${{ matrix.package.pypi_name }}"
-          VER="${{ steps.pkg.outputs.version }}"
-          pip download --no-binary :all: --no-deps "${PKG}==${VER}"
-          if ls "${PKG}-${VER}.tar.gz" 2>/dev/null; then
-            tar -xf "${PKG}-${VER}.tar.gz"
-          else
-            unzip -q "${PKG}-${VER}.zip"
-          fi
-          shopt -s dotglob
-          mv "${PKG}-${VER}/"* . 2>/dev/null || true
-          rmdir "${PKG}-${VER}" 2>/dev/null || true
-
-      - name: Build iOS wheel (${{ matrix.arch }})
-        if: steps.cache.outputs.cache-hit != 'true'
-        env:
-          CIBW_PLATFORM: ios
-          CIBW_ARCHS_IOS: ${{ matrix.arch }}
-          CIBW_BUILD_FRONTEND: build
-          CIBW_TEST_SKIP: '*'
-        run: python -m cibuildwheel --output-dir wheelhouse
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ios-${{ matrix.arch }}-${{ matrix.package.pypi_name }}-${{ steps.pkg.outputs.version }}
-          path: wheelhouse/*.whl
-          if-no-files-found: error
-
-  # ─────────────────────────────────────────────
-  # 4. Publish — create a GitHub Release and
-  #    (optionally) push to a PyPI-compatible
-  #    index hosted on GitHub Pages
-  # ─────────────────────────────────────────────
-  publish:
-    name: Publish Release
-    needs: [resolve-version, build-android, build-ios]
-    if: |
-      always() &&
-      needs.resolve-version.outputs.skip == 'false' &&
-      (needs.build-android.result == 'success' || needs.build-android.result == 'skipped') &&
-      (needs.build-ios.result    == 'success' || needs.build-ios.result    == 'skipped')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pages: write
-      id-token: write
-
-    steps:
-      - name: Checkout repo (for gh-pages index update)
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Download all wheel artifacts
-        uses: actions/download-artifact@v4
+      - name: Download wheels for ${{ matrix.pkg.pypi_name }}
+        uses: actions/download-artifact@v8
         with:
           path: dist/
-          merge-multiple: true   # flatten all artifact dirs into dist/
+          pattern: ${{ matrix.pkg.pypi_name }}-${{ matrix.pkg.version }}-android-*
+          merge-multiple: true
 
-      - name: List wheels
-        run: find dist/ -name '*.whl' | sort
-
-      # ── GitHub Release ──────────────────────────────────────────────────
-      - name: Create or update GitHub Release
+      - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ needs.resolve-version.outputs.version }}
         run: |
-          TAG="v${VERSION}"
+          PKG="${{ matrix.pkg.pypi_name }}"
+          VER="${{ matrix.pkg.version }}"
+          TAG="${{ matrix.pkg.tag }}"
 
-          # Collect actual built versions from wheel filenames
-          pkg_versions() {
-            find dist/ -name "${1}-*.whl" | head -1 | \
-              sed -E 's|.*/'$1'-([^-]+)-.*|\1|'
-          }
-          VER_AIOHTTP=$(pkg_versions aiohttp)
-          VER_YARL=$(pkg_versions yarl)
-          VER_MULTIDICT=$(pkg_versions multidict)
-          VER_FROZENLIST=$(pkg_versions frozenlist)
-          VER_PROPCACHE=$(pkg_versions propcache)
+          BODY="## ${PKG} ${VER} — Android wheels
 
-          BODY="## aiohttp ${VER_AIOHTTP} — Android + iOS wheels
-
-          ### Built packages
-          | Package | Version |
+          | ABI | Target |
           |---|---|
-          | \`aiohttp\` | ${VER_AIOHTTP} |
-          | \`yarl\` | ${VER_YARL} |
-          | \`multidict\` | ${VER_MULTIDICT} |
-          | \`frozenlist\` | ${VER_FROZENLIST} |
-          | \`propcache\` | ${VER_PROPCACHE} |
+          | \`arm64_v8a\` | Physical devices (Android 7+, API 24) |
+          | \`x86_64\`    | Emulators |
 
-          ### Android ABIs
-          - \`arm64_v8a\` (physical devices)
-          - \`x86_64\` (emulators)
+          Python: **CP3.13**, **CP3.14**
 
-          ### iOS architectures
-          - \`arm64_iphoneos\` (physical devices)
-          - \`arm64_iphonesimulator\` (simulators)
-          - \`x86_64_iphonesimulator\` (simulators)
-
-          Auto-built by GitHub Actions from PyPI sdists.
+          Built from PyPI sdist by GitHub Actions.
           "
 
           gh release create "$TAG" dist/*.whl \
             --repo "$GITHUB_REPOSITORY" \
-            --title "aiohttp ${VER_AIOHTTP} mobile wheels" \
+            --title "${PKG} ${VER} — Android wheels" \
             --notes "$BODY" \
-            --latest \
           || gh release upload "$TAG" dist/*.whl \
             --repo "$GITHUB_REPOSITORY" \
             --clobber
 
-      # ── Simple PEP 503 index on GitHub Pages ───────────────────────────
-      #
-      #   After enabling GitHub Pages (source: gh-pages branch) you can
-      #   install directly with:
-      #
-      #     pip install aiohttp \
-      #       --extra-index-url https://<org>.github.io/<repo>/simple/
-      #
-      - name: Update PEP 503 simple index
-        env:
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          RELEASE_TAG: v${{ needs.resolve-version.outputs.version }}
-        run: |
-          python3 - <<'EOF'
-          import os, hashlib, html
-          from pathlib import Path
-          from urllib.parse import quote
-
-          repo        = os.environ["GITHUB_REPOSITORY"]
-          release_tag = os.environ["RELEASE_TAG"]
-          base_url    = f"https://github.com/{repo}/releases/download/{release_tag}"
-          dist_dir    = Path("dist")
-          pages_dir   = Path("gh-pages-index")
-          simple_dir  = pages_dir / "simple"
-          simple_dir.mkdir(parents=True, exist_ok=True)
-
-          # Group wheels by package name
-          packages = {}   # pkg_name -> [whl_path, ...]
-          for whl in sorted(dist_dir.glob("*.whl")):
-              pkg_name = whl.name.split("-")[0].replace("_", "-").lower()
-              packages.setdefault(pkg_name, []).append(whl)
-
-          # Per-package simple index
-          for pkg, wheels in packages.items():
-              pkg_dir = simple_dir / pkg
-              pkg_dir.mkdir(exist_ok=True)
-              links = []
-              for whl in sorted(wheels):
-                  sha256 = hashlib.sha256(whl.read_bytes()).hexdigest()
-                  href   = f"{base_url}/{quote(whl.name)}#sha256={sha256}"
-                  links.append(
-                      f'<a href="{href}" data-requires-python=">=3.11">'
-                      f'{html.escape(whl.name)}</a>'
-                  )
-              (pkg_dir / "index.html").write_text(
-                  "<!DOCTYPE html><html><head><meta charset='utf-8'>"
-                  f"<title>Links for {pkg}</title></head><body>"
-                  f"<h1>Links for {pkg}</h1>\n"
-                  + "<br>\n".join(links) + "\n"
-                  + "</body></html>\n"
-              )
-
-          # /simple/ root index
-          pkg_links = "\n".join(
-              f'<a href="{pkg}/">{pkg}</a>' for pkg in sorted(packages)
-          )
-          (simple_dir / "index.html").write_text(
-              "<!DOCTYPE html><html><head><meta charset='utf-8'>"
-              "<title>Simple Index</title></head><body>"
-              "<h1>Simple Index</h1>\n"
-              + pkg_links + "\n"
-              + "</body></html>\n"
-          )
-
-          # / root page (human-readable)
-          pkg_rows = "\n".join(
-              f"<tr><td><a href='simple/{pkg}/'>{pkg}</a></td>"
-              f"<td>{len(wheels)} wheel(s)</td></tr>"
-              for pkg, wheels in sorted(packages.items())
-          )
-          (pages_dir / "index.html").write_text(
-              "<!DOCTYPE html><html><head><meta charset='utf-8'>"
-              "<title>Mobile Python Wheels</title></head><body>"
-              "<h1>Mobile Python Wheels</h1>"
-              "<p>Android + iOS wheels for aiohttp and its C dependencies.</p>"
-              "<p>Install via pip:<br>"
-              f"<code>pip install aiohttp --extra-index-url "
-              f"https://{repo.split('/')[0]}.github.io/{repo.split('/')[1]}/simple/</code></p>"
-              "<table border='1' cellpadding='6'>"
-              "<tr><th>Package</th><th>Wheels</th></tr>\n"
-              + pkg_rows + "\n"
-              + "</table>"
-              "<p><a href='simple/'>Browse simple index</a></p>"
-              "</body></html>\n"
-          )
-          print("Generated index for:", sorted(packages.keys()))
-          EOF
-
-      - name: Deploy index to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: gh-pages-index
-          keep_files: true          # accumulate across releases
-          user_name: 'github-actions[bot]'
-          user_email: 'github-actions[bot]@users.noreply.github.com'
-          commit_message: "chore: update wheel index for aiohttp ${{ needs.resolve-version.outputs.version }}"
