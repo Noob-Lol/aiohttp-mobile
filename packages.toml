@@ -5,6 +5,7 @@
 #   pypi_name  – exact PyPI package name (required)
 #   pin        – lock to a specific version; omit to always build latest
 
+# aiohttp
 [[package]]
 pypi_name = "frozenlist"
 
@@ -19,3 +20,27 @@ pypi_name = "yarl"
 
 [[package]]
 pypi_name = "aiohttp"
+# other
+[[package]]
+pypi_name = "orjson"
+
+[[package]]
+pypi_name = "uvloop"
+
+[[package]]
+pypi_name = "msgspec"
+
+[[package]]
+pypi_name = "cryptography"
+
+[[package]]
+pypi_name = "websockets"
+
+[[package]]
+pypi_name = "pydantic-core"
+
+[[package]]
+pypi_name = "psutil"
+
+[[package]]
+pypi_name = "watchfiles"
