@@ -355,36 +355,35 @@ jobs:
       - name: Update PEP 503 simple index
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: v${{ needs.resolve-version.outputs.version }}
         run: |
           python3 - <<'EOF'
           import os, hashlib, html
           from pathlib import Path
           from urllib.parse import quote
 
-          repo       = os.environ["GITHUB_REPOSITORY"]
-          base_url   = f"https://github.com/{repo}/releases/download"
-          dist_dir   = Path("dist")
-          pages_dir  = Path("gh-pages-index")
-          simple_dir = pages_dir / "simple"
+          repo        = os.environ["GITHUB_REPOSITORY"]
+          release_tag = os.environ["RELEASE_TAG"]
+          base_url    = f"https://github.com/{repo}/releases/download/{release_tag}"
+          dist_dir    = Path("dist")
+          pages_dir   = Path("gh-pages-index")
+          simple_dir  = pages_dir / "simple"
           simple_dir.mkdir(parents=True, exist_ok=True)
 
-          # Group wheels by package name, track all release tags seen
-          packages = {}   # pkg_name -> [(tag, whl_path), ...]
+          # Group wheels by package name
+          packages = {}   # pkg_name -> [whl_path, ...]
           for whl in sorted(dist_dir.glob("*.whl")):
-              # wheel: {dist}-{version}-{pytag}-{abitag}-{platform}.whl
-              parts    = whl.name.split("-")
-              pkg_name = parts[0].replace("_", "-").lower()
-              tag      = f"v{parts[1]}"
-              packages.setdefault(pkg_name, []).append((tag, whl))
+              pkg_name = whl.name.split("-")[0].replace("_", "-").lower()
+              packages.setdefault(pkg_name, []).append(whl)
 
           # Per-package simple index
-          for pkg, entries in packages.items():
+          for pkg, wheels in packages.items():
               pkg_dir = simple_dir / pkg
               pkg_dir.mkdir(exist_ok=True)
               links = []
-              for tag, whl in sorted(entries):
-                  sha256    = hashlib.sha256(whl.read_bytes()).hexdigest()
-                  href      = f"{base_url}/{tag}/{quote(whl.name)}#sha256={sha256}"
+              for whl in sorted(wheels):
+                  sha256 = hashlib.sha256(whl.read_bytes()).hexdigest()
+                  href   = f"{base_url}/{quote(whl.name)}#sha256={sha256}"
                   links.append(
                       f'<a href="{href}" data-requires-python=">=3.11">'
                       f'{html.escape(whl.name)}</a>'
@@ -412,8 +411,8 @@ jobs:
           # / root page (human-readable)
           pkg_rows = "\n".join(
               f"<tr><td><a href='simple/{pkg}/'>{pkg}</a></td>"
-              f"<td>{len(entries)} wheel(s)</td></tr>"
-              for pkg, entries in sorted(packages.items())
+              f"<td>{len(wheels)} wheel(s)</td></tr>"
+              for pkg, wheels in sorted(packages.items())
           )
           (pages_dir / "index.html").write_text(
               "<!DOCTYPE html><html><head><meta charset='utf-8'>"
