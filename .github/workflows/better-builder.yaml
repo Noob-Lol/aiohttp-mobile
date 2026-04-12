@@ -102,7 +102,7 @@ jobs:
         run: |
           PKG="${{ matrix.pkg.pypi_name }}"
           VER="${{ matrix.pkg.version }}"
-          uv download --no-binary :all: --no-deps "${PKG}==${VER}" --dest .
+          pip download --no-binary :all: --no-deps "${PKG}==${VER}"
           if compgen -G "${PKG}-${VER}.tar.gz" > /dev/null; then
             tar -xf "${PKG}-${VER}.tar.gz"
           else
