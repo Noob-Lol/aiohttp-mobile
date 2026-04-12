@@ -2,42 +2,47 @@
 # Packages to build Android wheels for, checked daily against PyPI.
 #
 # Fields:
-#   pypi_name  – exact PyPI package name (required)
-#   pin        – lock to a specific version; omit to always build latest
+#   name              – PyPI package name (required)
+#   pin               – lock to a specific version; omit to always build latest
+#   cibw_environment  – extra env vars for CIBW_ENVIRONMENT_ANDROID (optional)
+#   cibw_before_build – commands to run before building via CIBW_BEFORE_BUILD_ANDROID (optional)
 
 # aiohttp
 [[package]]
-pypi_name = "frozenlist"
+name = "frozenlist"
 
 [[package]]
-pypi_name = "multidict"
+name = "multidict"
 
 [[package]]
-pypi_name = "propcache"
+name = "propcache"
 
 [[package]]
-pypi_name = "yarl"
+name = "yarl"
 
 [[package]]
-pypi_name = "aiohttp"
+name = "aiohttp"
+
 # other
 [[package]]
-pypi_name = "orjson"
+name = "orjson"
+
+# [[package]]
+# name = "uvloop"
+# fix env
 
 [[package]]
-pypi_name = "uvloop"
+name = "psutil"
+cibw_before_build = "sed -i 's/sys.platform.startswith(\"linux\")/sys.platform.startswith((\"linux\", \"android\"))/g' psutil/_common.py"
 
 [[package]]
-pypi_name = "msgspec"
+name = "msgspec"
 
 [[package]]
-pypi_name = "cryptography"
+name = "websockets"
 
 [[package]]
-pypi_name = "websockets"
+name = "pydantic_core"
 
 [[package]]
-pypi_name = "pydantic_core"
-
-[[package]]
-pypi_name = "watchfiles"
+name = "watchfiles"

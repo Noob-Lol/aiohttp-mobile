@@ -42,6 +42,8 @@ jobs:
       - uses: actions/checkout@v6
 
       - uses: astral-sh/setup-uv@v8.0.0
+        with:
+          enable-cache: false
 
       - name: Run resolve.py
         id: resolve
@@ -57,7 +59,7 @@ jobs:
   # 2. Build: one job per (package x arch)
   # ───────────────────────────────────────────────────────────────────────────
   build:
-    name: ${{ matrix.pkg.pypi_name }} ${{ matrix.pkg.version }} / ${{ matrix.arch }}
+    name: ${{ matrix.pkg.name }} ${{ matrix.pkg.version }} / ${{ matrix.arch }}
     needs: resolve
     if: needs.resolve.outputs.any_to_build == 'true'
     runs-on: ubuntu-latest
@@ -69,18 +71,14 @@ jobs:
         arch: [arm64_v8a, x86_64]
 
     steps:
-      - if: matrix.pkg.pypi_name == '__skip__'
+      - if: matrix.pkg.name == '__skip__'
         run: echo "Nothing to build." && exit 0
 
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.14'
-
       - uses: astral-sh/setup-uv@v8.0.0
-
-
+        with:
+          enable-cache: false
 
       - name: Install cibuildwheel
         run: uv tool install cibuildwheel
@@ -90,37 +88,42 @@ jobs:
         uses: actions/cache@v5
         with:
           path: wheelhouse
-          key: wheel-android-${{ matrix.arch }}-${{ matrix.pkg.pypi_name }}-${{ matrix.pkg.version }}-cp313-cp314
+          key: wheel-android-${{ matrix.arch }}-${{ matrix.pkg.name }}-${{ matrix.pkg.version }}-cp313-cp314
 
       - name: Download and unpack sdist
         if: steps.wheel-cache.outputs.cache-hit != 'true'
         run: |
-          PKG="${{ matrix.pkg.pypi_name }}"
+          PKG="${{ matrix.pkg.name }}"
           VER="${{ matrix.pkg.version }}"
           pip download --no-binary :all: --no-deps "${PKG}==${VER}"
-          if compgen -G "${PKG}-${VER}.tar.gz" > /dev/null; then
-            tar -xf "${PKG}-${VER}.tar.gz"
-          else
-            unzip -q "${PKG}-${VER}.zip"
+          # Handle any normalization of filenames (- vs _)
+          SDIST=$(ls *.tar.gz *.zip 2>/dev/null | head -1)
+          if [[ "$SDIST" == *.tar.gz ]]; then
+            tar -xf "$SDIST"
+          elif [[ "$SDIST" == *.zip ]]; then
+            unzip -q "$SDIST"
           fi
+          SRCDIR=$(ls -d */ | head -1)
           shopt -s dotglob
-          mv "${PKG}-${VER}/"* . 2>/dev/null || true
-          rmdir "${PKG}-${VER}" 2>/dev/null || true
+          mv "${SRCDIR}"* . 2>/dev/null || true
+          rmdir "$SRCDIR" 2>/dev/null || true
 
       - name: Build wheel
         if: steps.wheel-cache.outputs.cache-hit != 'true'
         env:
-          CIBW_PLATFORM:       android
-          CIBW_ARCHS_ANDROID:  ${{ matrix.arch }}
-          CIBW_BUILD_FRONTEND: build
-          CIBW_TEST_SKIP:      '*'
-          ANDROID_API_LEVEL:   '24'
+          CIBW_PLATFORM:              android
+          CIBW_ARCHS_ANDROID:         ${{ matrix.arch }}
+          CIBW_BUILD_FRONTEND:        build
+          CIBW_TEST_SKIP:             '*'
+          CIBW_ENVIRONMENT_ANDROID:   ${{ matrix.pkg.cibw_environment || '' }}
+          CIBW_BEFORE_BUILD_ANDROID:  ${{ matrix.pkg.cibw_before_build || '' }}
+          ANDROID_API_LEVEL:          '24'
         run: cibuildwheel --output-dir wheelhouse
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.pkg.pypi_name }}-${{ matrix.pkg.version }}-android-${{ matrix.arch }}
+          name: ${{ matrix.pkg.name }}-${{ matrix.pkg.version }}-android-${{ matrix.arch }}
           path: wheelhouse/*.whl
           if-no-files-found: error
 
@@ -128,7 +131,7 @@ jobs:
   # 3. Publish: create a GitHub Release per package
   # ───────────────────────────────────────────────────────────────────────────
   publish:
-    name: Publish ${{ matrix.pkg.pypi_name }} ${{ matrix.pkg.version }}
+    name: Publish ${{ matrix.pkg.name }} ${{ matrix.pkg.version }}
     needs: [resolve, build]
     if: needs.resolve.outputs.any_to_build == 'true'
     runs-on: ubuntu-latest
@@ -139,21 +142,21 @@ jobs:
         pkg: ${{ fromJson(needs.resolve.outputs.matrix).include }}
 
     steps:
-      - if: matrix.pkg.pypi_name == '__skip__'
+      - if: matrix.pkg.name == '__skip__'
         run: echo "Nothing to publish." && exit 0
 
-      - name: Download wheels for ${{ matrix.pkg.pypi_name }}
+      - name: Download wheels for ${{ matrix.pkg.name }}
         uses: actions/download-artifact@v8
         with:
           path: dist/
-          pattern: ${{ matrix.pkg.pypi_name }}-${{ matrix.pkg.version }}-android-*
+          pattern: ${{ matrix.pkg.name }}-${{ matrix.pkg.version }}-android-*
           merge-multiple: true
 
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PKG="${{ matrix.pkg.pypi_name }}"
+          PKG="${{ matrix.pkg.name }}"
           VER="${{ matrix.pkg.version }}"
           TAG="${{ matrix.pkg.tag }}"
 
@@ -174,4 +177,3 @@ jobs:
           || gh release upload "$TAG" dist/*.whl \
             --repo "$GITHUB_REPOSITORY" \
             --clobber
-
