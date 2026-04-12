@@ -37,7 +37,7 @@ pypi_name = "cryptography"
 pypi_name = "websockets"
 
 [[package]]
-pypi_name = "pydantic-core"
+pypi_name = "pydantic_core"
 
 [[package]]
 pypi_name = "psutil"
