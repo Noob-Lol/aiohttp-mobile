@@ -40,7 +40,4 @@ pypi_name = "websockets"
 pypi_name = "pydantic_core"
 
 [[package]]
-pypi_name = "psutil"
-
-[[package]]
 pypi_name = "watchfiles"
