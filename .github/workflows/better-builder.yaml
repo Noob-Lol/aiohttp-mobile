@@ -80,12 +80,7 @@ jobs:
 
       - uses: astral-sh/setup-uv@v8.0.0
 
-      - name: Cache uv (cibuildwheel install)
-        uses: actions/cache@v5
-        with:
-          path: ~/.cache/uv
-          key: uv-${{ runner.os }}-${{ hashFiles('**/packages.toml') }}
-          restore-keys: uv-${{ runner.os }}-
+
 
       - name: Install cibuildwheel
         run: uv tool install cibuildwheel
@@ -162,9 +157,7 @@ jobs:
           VER="${{ matrix.pkg.version }}"
           TAG="${{ matrix.pkg.tag }}"
 
-          BODY="## ${PKG} ${VER} — Android wheels
-
-          | ABI | Target |
+          BODY="| ABI | Target |
           |---|---|
           | \`arm64_v8a\` | Physical devices (Android 7+, API 24) |
           | \`x86_64\`    | Emulators |

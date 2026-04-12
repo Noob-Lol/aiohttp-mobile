@@ -77,7 +77,7 @@ jobs:
                   if not name.endswith(".whl"):
                       continue
 
-                  download_url = asset["browserDownloadUrl"]
+                  download_url = asset["url"]
                   # GitHub API exposes digest as "sha256:HEX" since June 2025
                   digest_raw = asset.get("digest", "")
                   sha256 = ""
