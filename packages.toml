@@ -51,8 +51,8 @@ name = "watchfiles"
 #[[package]]
 #name = "cffi"
 
-[[package]]
-name = "numpy"
+#[[package]]
+#name = "numpy"
 
 [[package]]
 name = "jiter"
