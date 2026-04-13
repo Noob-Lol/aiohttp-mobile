@@ -47,3 +47,19 @@ name = "pydantic_core"
 
 [[package]]
 name = "watchfiles"
+
+[[package]]
+name = "cffi"
+
+[[package]]
+name = "numpy"
+
+[[package]]
+name = "jiter"
+
+[[package]]
+name = "hiredis"
+
+[[package]]
+name = "pymongo"
+
