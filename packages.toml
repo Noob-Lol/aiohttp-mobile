@@ -34,6 +34,7 @@ cibw_environment = "PYO3_CROSS = \"1\", PYO3_CROSS_LIB_DIR = \"$(python -c \"imp
 
 [[package]]
 name = "qh3"
+cibw_environment = 'BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot --target=$CIBW_HOST_TRIPLET"'
 
 # speedups
 [[package]]
