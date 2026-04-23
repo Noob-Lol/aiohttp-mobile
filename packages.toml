@@ -26,7 +26,7 @@ name = "aiohttp"
 # niquests compiled <3
 [[package]]
 name = "charset_normalizer"
-cibw_environment = "CHARSET_NORMALIZER_USE_MYPYC=1"
+cibw_environment = "PIP_NO_BINARY=mypy, CHARSET_NORMALIZER_USE_MYPYC=1"
 
 [[package]]
 name = "jh2"
