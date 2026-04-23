@@ -133,7 +133,7 @@ jobs:
         env:
           CIBW_PLATFORM:              android
           CIBW_ARCHS_ANDROID:         ${{ matrix.arch }}
-          CIBW_BUILD_FRONTEND:        build
+          CIBW_BUILD_FRONTEND:        build[uv]
           CIBW_TEST_SKIP:             '*'
           CIBW_ENVIRONMENT_ANDROID:   ${{ matrix.pkg.cibw_environment || '' }}
           CIBW_BEFORE_BUILD_ANDROID:  ${{ matrix.pkg.cibw_before_build || '' }}
