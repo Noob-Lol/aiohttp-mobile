@@ -23,10 +23,21 @@ name = "yarl"
 [[package]]
 name = "aiohttp"
 
-# other
+# niquests compiled <3
+[[package]]
+name = "charset_normalizer"
+
+[[package]]
+name = "jh2"
+
+[[package]]
+name = "gh3"
+
+# speedups
 [[package]]
 name = "orjson"
 
+# other
 # [[package]]
 # name = "uvloop"
 # fix env
