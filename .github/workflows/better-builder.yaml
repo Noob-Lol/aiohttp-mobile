@@ -20,12 +20,16 @@ on:
         default: false
         type: boolean
 
+env:
+  WHEEL_PY_TAGS: cp313-cp314
+  RELEASE_PYTHON_LABELS: CP3.13, CP3.14
+
 concurrency:
-  group: build-android-wheels
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   # ───────────────────────────────────────────────────────────────────────────
@@ -49,11 +53,21 @@ jobs:
         id: resolve
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_PACKAGE: ${{ github.event.inputs.package || '' }}
+          INPUT_VERSION: ${{ github.event.inputs.version || '' }}
+          INPUT_FORCE_REBUILD: ${{ github.event_name == 'workflow_dispatch' && inputs.force_rebuild == true }}
         run: |
-          uv run resolve.py \
-            ${{ inputs.package && format('--package "{0}"', inputs.package) || '' }} \
-            ${{ inputs.version && format('--version "{0}"', inputs.version) || '' }} \
-            ${{ inputs.force_rebuild == true && '--force' || '' }}
+          args=()
+          if [[ -n "$INPUT_PACKAGE" ]]; then
+            args+=(--package "$INPUT_PACKAGE")
+          fi
+          if [[ -n "$INPUT_VERSION" ]]; then
+            args+=(--version "$INPUT_VERSION")
+          fi
+          if [[ "$INPUT_FORCE_REBUILD" == "true" ]]; then
+            args+=(--force)
+          fi
+          uv run scripts/resolve.py "${args[@]}"
 
   # ───────────────────────────────────────────────────────────────────────────
   # 2. Build: one job per (package x arch)
@@ -88,28 +102,34 @@ jobs:
         uses: actions/cache@v5
         with:
           path: wheelhouse
-          key: wheel-android-${{ matrix.arch }}-${{ matrix.pkg.name }}-${{ matrix.pkg.version }}-cp313-cp314
+          key: wheel-android-${{ matrix.arch }}-${{ matrix.pkg.name }}-${{ matrix.pkg.version }}-${{ env.WHEEL_PY_TAGS }}
 
       - name: Download and unpack sdist
-        if: steps.wheel-cache.outputs.cache-hit != 'true'
+        if: steps.wheel-cache.outputs.cache-hit != 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_rebuild == true)
         run: |
           PKG="${{ matrix.pkg.name }}"
           VER="${{ matrix.pkg.version }}"
-          pip download --no-binary :all: --no-deps "${PKG}==${VER}"
-          # Handle any normalization of filenames (- vs _)
-          SDIST=$(ls *.tar.gz *.zip 2>/dev/null | head -1)
-          if [[ "$SDIST" == *.tar.gz ]]; then
-            tar -xf "$SDIST"
-          elif [[ "$SDIST" == *.zip ]]; then
-            unzip -q "$SDIST"
+          mkdir -p work/dist work/src wheelhouse
+          pip download --no-binary :all: --no-deps -d work/dist "${PKG}==${VER}"
+          SDIST=$(ls work/dist/*.tar.gz work/dist/*.zip 2>/dev/null | head -1)
+          if [[ -z "$SDIST" ]]; then
+            echo "No sdist downloaded for ${PKG}==${VER}"
+            exit 1
           fi
-          SRCDIR=$(ls -d */ | head -1)
-          shopt -s dotglob
-          mv "${SRCDIR}"* . 2>/dev/null || true
-          rmdir "$SRCDIR" 2>/dev/null || true
+          if [[ "$SDIST" == *.tar.gz ]]; then
+            tar -xf "$SDIST" -C work/src
+          elif [[ "$SDIST" == *.zip ]]; then
+            unzip -q "$SDIST" -d work/src
+          fi
+          SRCDIR=$(ls -d work/src/*/ 2>/dev/null | head -1)
+          if [[ -z "$SRCDIR" ]]; then
+            echo "Unable to locate unpacked source directory."
+            exit 1
+          fi
+          echo "SDIST_SOURCE_DIR=${SRCDIR%/}" >> "$GITHUB_ENV"
 
       - name: Build wheel
-        if: steps.wheel-cache.outputs.cache-hit != 'true'
+        if: steps.wheel-cache.outputs.cache-hit != 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_rebuild == true)
         env:
           CIBW_PLATFORM:              android
           CIBW_ARCHS_ANDROID:         ${{ matrix.arch }}
@@ -119,7 +139,9 @@ jobs:
           CIBW_BEFORE_BUILD_ANDROID:  ${{ matrix.pkg.cibw_before_build || '' }}
           ANDROID_API_LEVEL:          '24'
           SETUPTOOLS_SCM_PRETEND_VERSION: ${{ matrix.pkg.version }}
-        run: cibuildwheel --output-dir wheelhouse
+        run: |
+          cd "$SDIST_SOURCE_DIR"
+          cibuildwheel --output-dir "$GITHUB_WORKSPACE/wheelhouse"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7
@@ -134,8 +156,10 @@ jobs:
   publish:
     name: Publish ${{ matrix.pkg.name }} ${{ matrix.pkg.version }}
     needs: [resolve, build]
-    if: needs.resolve.outputs.any_to_build == 'true'
+    if: always() && needs.resolve.outputs.any_to_build == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     strategy:
       fail-fast: false
@@ -148,12 +172,25 @@ jobs:
 
       - name: Download wheels for ${{ matrix.pkg.name }}
         uses: actions/download-artifact@v8
+        continue-on-error: true
         with:
           path: dist/
           pattern: ${{ matrix.pkg.name }}-${{ matrix.pkg.version }}-android-*
           merge-multiple: true
 
+      - name: Check package artifact availability
+        id: package-artifacts
+        shell: bash
+        run: |
+          if compgen -G "dist/*.whl" > /dev/null; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "No wheel artifacts found for ${{ matrix.pkg.name }}-${{ matrix.pkg.version }}; skipping publish."
+          fi
+
       - name: Create GitHub Release
+        if: steps.package-artifacts.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -166,7 +203,7 @@ jobs:
           | \`arm64_v8a\` | Physical devices (Android 7+, API 24) |
           | \`x86_64\`    | Emulators |
 
-          Python: **CP3.13**, **CP3.14**
+          Python: **${{ env.RELEASE_PYTHON_LABELS }}**
 
           Built from PyPI sdist by GitHub Actions.
           "
