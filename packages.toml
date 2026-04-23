@@ -27,7 +27,7 @@ name = "aiohttp"
 [[package]]
 name = "charset_normalizer"
 cibw_environment = "CHARSET_NORMALIZER_USE_MYPYC=1"
-cibw_before_build = "pip install --no-binary --force-reinstall mypy[mypyc]>=1.4.1,<=1.20"
+cibw_before_build = "pip install --no-binary --force-reinstall mypy[mypyc]==1.20"
 
 [[package]]
 name = "jh2"
