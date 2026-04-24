@@ -30,7 +30,6 @@ cibw_environment = "PIP_NO_BINARY=mypy CHARSET_NORMALIZER_USE_MYPYC=1"
 
 [[package]]
 name = "jh2"
-cibw_environment = "PYO3_CROSS=1 PYO3_NO_PYTHON=1"
 
 [[package]]
 name = "qh3"
