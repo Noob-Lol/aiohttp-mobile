@@ -20,6 +20,7 @@ import json
 import sys
 import urllib.error
 import urllib.request
+import urllib.response
 from pathlib import Path
 
 
@@ -28,7 +29,7 @@ def fetch_sdist_info(pkg: str, ver: str) -> tuple[str, str, str]:
     url = f"https://pypi.org/pypi/{pkg}/{ver}/json"
     try:
         with urllib.request.urlopen(url) as r:
-            data = json.load(r)
+            data: dict = json.load(r)
     except urllib.error.HTTPError as e:
         if e.code == 404:
             sys.exit(f"ERROR: {pkg}=={ver} not found on PyPI (404)")
@@ -46,8 +47,10 @@ def fetch_sdist_info(pkg: str, ver: str) -> tuple[str, str, str]:
 def download(url: str, dest: Path) -> None:
     print(f"  downloading {url}")
     with urllib.request.urlopen(url) as r, dest.open("wb") as f:
+        r: urllib.response.addinfourl
         total = int(r.headers.get("Content-Length", 0))
         downloaded = 0
+        last_pct = -1
         while True:
             block = r.read(65536)
             if not block:
@@ -56,7 +59,10 @@ def download(url: str, dest: Path) -> None:
             downloaded += len(block)
             if total:
                 pct = downloaded * 100 // total
-                print(f"\r  {downloaded // 1024} / {total // 1024} KB  ({pct}%)", end="", flush=True)
+                pct -= (pct % 10)   # round down to nearest 10
+                if pct != last_pct:
+                    print(f"\r  {downloaded // 1024} / {total // 1024} KB  ({pct}%)", end="", flush=True)
+                    last_pct = pct
     print()
 
 
