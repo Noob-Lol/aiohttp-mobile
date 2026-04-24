@@ -138,6 +138,7 @@ jobs:
           CIBW_ENVIRONMENT_ANDROID:   ${{ matrix.pkg.cibw_environment || '' }}
           CIBW_BEFORE_BUILD_ANDROID:  ${{ matrix.pkg.cibw_before_build || '' }}
           ANDROID_API_LEVEL:          '24'
+          PYO3_CROSS_PYTHON_VERSION:  $(python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
           SETUPTOOLS_SCM_PRETEND_VERSION: ${{ matrix.pkg.version }}
         run: |
           cd "$SDIST_SOURCE_DIR"

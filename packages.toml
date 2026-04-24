@@ -26,11 +26,10 @@ name = "aiohttp"
 # niquests compiled <3
 [[package]]
 name = "charset_normalizer"
-cibw_environment = "PIP_NO_BINARY=mypy, CHARSET_NORMALIZER_USE_MYPYC=1"
+cibw_environment = "PIP_NO_BINARY=mypy CHARSET_NORMALIZER_USE_MYPYC=1"
 
 [[package]]
 name = "jh2"
-cibw_environment = "PYO3_CROSS = \"1\", PYO3_CROSS_LIB_DIR = \"$(python -c \"import sysconfig; print(sysconfig.get_config_var('LIBDIR'))\")"
 
 [[package]]
 name = "qh3"
