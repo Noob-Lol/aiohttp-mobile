@@ -30,6 +30,7 @@ cibw_environment = "PIP_NO_BINARY=mypy CHARSET_NORMALIZER_USE_MYPYC=1"
 
 [[package]]
 name = "jh2"
+cibw_environment = 'MATURIN_PEP517_ARGS="--features pyo3/extension-module --features pyo3/generate-import-lib"'
 
 [[package]]
 name = "qh3"
