@@ -40,7 +40,9 @@ def parse_packages(releases: list[dict]) -> dict[str, list[tuple[str, str, str]]
             digest_raw = asset.get("digest", "")
             sha256 = digest_raw[len("sha256:") :] if digest_raw.startswith("sha256:") else ""
             pkg_name = name.split("-")[0].replace("_", "-").lower()
-            packages.setdefault(pkg_name, []).append((name, asset["url"], sha256))
+            # Use the browser_download_url (no fallback) so links always point to the actual file
+            download_url = asset["browser_download_url"]
+            packages.setdefault(pkg_name, []).append((name, download_url, sha256))
     return packages
 
 
