@@ -110,17 +110,13 @@ jobs:
           PKG="${{ matrix.pkg.name }}"
           VER="${{ matrix.pkg.version }}"
           mkdir -p work/dist work/src wheelhouse
-          pip download --no-binary :all: --no-deps -d work/dist "${PKG}==${VER}"
-          SDIST=$(ls work/dist/*.tar.gz work/dist/*.zip 2>/dev/null | head -1)
+          uv run scripts/download_sdist.py "$PKG" "$VER" -d work/dist
+          SDIST=$(ls work/dist/*.tar.gz 2>/dev/null | head -1)
           if [[ -z "$SDIST" ]]; then
             echo "No sdist downloaded for ${PKG}==${VER}"
             exit 1
           fi
-          if [[ "$SDIST" == *.tar.gz ]]; then
-            tar -xf "$SDIST" -C work/src
-          elif [[ "$SDIST" == *.zip ]]; then
-            unzip -q "$SDIST" -d work/src
-          fi
+          tar -xf "$SDIST" -C work/src
           SRCDIR=$(ls -d work/src/*/ 2>/dev/null | head -1)
           if [[ -z "$SRCDIR" ]]; then
             echo "Unable to locate unpacked source directory."
