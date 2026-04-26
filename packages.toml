@@ -32,11 +32,12 @@ cibw_environment = { PIP_NO_BINARY = "mypy", CHARSET_NORMALIZER_USE_MYPYC = "1" 
 [[package]]
 name = "jh2"
 cibw_environment = { MATURIN_PEP517_ARGS = "--features pyo3/extension-module --features pyo3/generate-import-lib" }
-cibw_before_build = "sed -i 's/\"abi3-py37\", //' {project}/Cargo.toml"
+patch = "sed -i 's/\"abi3-py37\", //' {project}/Cargo.toml"
 
 [[package]]
 name = "qh3"
-cibw_before_build = 'export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot --target=$CARGO_BUILD_TARGET"'
+cibw_environment = { MATURIN_PEP517_ARGS = "--features pyo3/extension-module --features pyo3/generate-import-lib" }
+patch = "sed -i 's/\"abi3-py37\", //' {project}/Cargo.toml"
 
 # speedups
 [[package]]
