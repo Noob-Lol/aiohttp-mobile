@@ -65,8 +65,11 @@ name = "pydantic_core"
 [[package]]
 name = "watchfiles"
 
-#[[package]]
-#name = "cffi"
+[[package]]
+name = "cryptography"
+
+[[package]]
+name = "cffi"
 
 #[[package]]
 #name = "numpy"
