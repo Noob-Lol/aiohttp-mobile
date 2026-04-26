@@ -67,4 +67,4 @@ jobs:
           publish_dir: gh-pages-index
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
-          commit_message: 'chore: rebuild wheel index (run ${{ github.run_number }} @ ${{ github.sha }})'
+          commit_message: 'chore: rebuild wheel index (run ${{ github.run_number }})'
