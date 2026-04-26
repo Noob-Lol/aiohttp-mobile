@@ -113,16 +113,16 @@ jobs:
          uv run scripts/download_sdist.py "$PKG" "$VER" -d work/dist
          tar -xf work/dist/*.tar.gz -C work/src
          SRCDIR=$(ls -d work/src/*/ | head -1)
-         SDIST_SOURCE_DIR=${SRCDIR%/}
-         echo "SDIST_SOURCE_DIR=$SDIST_SOURCE_DIR" >> "$GITHUB_ENV"
-         PATCH="${{ matrix.pkg.patch }}"
-         if [[ -n "$PATCH" ]]; then
-          PROJECT="$SDIST_SOURCE_DIR"
-          PATCH="${PATCH//\{project\}/$PROJECT}"
-          echo "Applying patch:"
-          echo '$PATCH'
-          eval '$PATCH'
-         fi
+         echo "SDIST_SOURCE_DIR=${SRCDIR%/}" >> "$GITHUB_ENV"
+
+      - name: Patch sdist
+        if: matrix.pkg.patch != '' && (steps.wheel-cache.outputs.cache-hit != 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_rebuild == true))
+        env:
+          PATCH: ${{ matrix.pkg.patch }}
+        run: |
+          PATCH="${PATCH//\{project\}/$SDIST_SOURCE_DIR}"
+          echo "Applying patch: $PATCH"
+          bash -c "$PATCH"
 
       - name: Build wheel
         if: steps.wheel-cache.outputs.cache-hit != 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_rebuild == true)
