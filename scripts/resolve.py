@@ -94,6 +94,30 @@ def filter_matrix(candidates: list[dict[str, str]], repo: str, *, force: bool) -
     return matrix_entries
 
 
+def serialize_cibw_environment(val) -> str:
+    if isinstance(val, dict):
+        # Produce: KEY=value KEY2="value with spaces"
+        parts = []
+        for k, v in val.items():
+            if " " in str(v) or '"' in str(v):
+                parts.append(f'{k}="{v}"')
+            else:
+                parts.append(f"{k}={v}")
+        return " ".join(parts)
+    if isinstance(val, list):
+        return " ".join(val)
+    return val  # already a string
+
+
+def make_candidate(name: str, version: str, pkg_config: dict) -> dict[str, str]:
+    entry: dict[str, str] = {"name": name, "version": version}
+    if "cibw_environment" in pkg_config:
+        entry["cibw_environment"] = serialize_cibw_environment(pkg_config["cibw_environment"])
+    if "cibw_before_build" in pkg_config:
+        entry["cibw_before_build"] = pkg_config["cibw_before_build"]
+    return entry
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--package", default="", help="Ad-hoc package name to build (not required to be in packages.toml)")
@@ -123,24 +147,13 @@ def main() -> None:
         else:
             pkg_config = configured[pkg_name]
         version = args.version.strip() or pypi_latest(pkg_name)
-        candidates = [
-            {
-                "name": pkg_name,
-                "version": version,
-                **{k: pkg_config[k] for k in ("cibw_environment", "cibw_before_build") if k in pkg_config},
-            },
-        ]
+        candidates = [make_candidate(pkg_name, version, pkg_config)]
     else:
         candidates = []
         for pkg in config["package"]:
             name = normalize(pkg["name"])
             version = pkg.get("pin", "") or pypi_latest(name)
-            entry = {"name": name, "version": version}
-            if "cibw_environment" in pkg:
-                entry["cibw_environment"] = pkg["cibw_environment"]
-            if "cibw_before_build" in pkg:
-                entry["cibw_before_build"] = pkg["cibw_before_build"]
-            candidates.append(entry)
+            candidates.append(make_candidate(name, version, pkg))
 
     # Filter out already-released entries
     matrix_entries = filter_matrix(candidates, repo, force=args.force)
