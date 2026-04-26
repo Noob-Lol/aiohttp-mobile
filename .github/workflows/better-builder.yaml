@@ -107,22 +107,13 @@ jobs:
       - name: Download and unpack sdist
         if: steps.wheel-cache.outputs.cache-hit != 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_rebuild == true)
         run: |
-          PKG="${{ matrix.pkg.name }}"
-          VER="${{ matrix.pkg.version }}"
-          mkdir -p work/dist work/src wheelhouse
-          uv run scripts/download_sdist.py "$PKG" "$VER" -d work/dist
-          SDIST=$(ls work/dist/*.tar.gz 2>/dev/null | head -1)
-          if [[ -z "$SDIST" ]]; then
-            echo "No sdist downloaded for ${PKG}==${VER}"
-            exit 1
-          fi
-          tar -xf "$SDIST" -C work/src
-          SRCDIR=$(ls -d work/src/*/ 2>/dev/null | head -1)
-          if [[ -z "$SRCDIR" ]]; then
-            echo "Unable to locate unpacked source directory."
-            exit 1
-          fi
-          echo "SDIST_SOURCE_DIR=${SRCDIR%/}" >> "$GITHUB_ENV"
+         PKG="${{ matrix.pkg.name }}"
+         VER="${{ matrix.pkg.version }}"
+         mkdir -p work/dist work/src
+         uv run scripts/download_sdist.py "$PKG" "$VER" -d work/dist
+         tar -xf work/dist/*.tar.gz -C work/src
+         SRCDIR=$(ls -d work/src/*/ | head -1)
+         echo "SDIST_SOURCE_DIR=${SRCDIR%/}" >> "$GITHUB_ENV"
 
       - name: Build wheel
         if: steps.wheel-cache.outputs.cache-hit != 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_rebuild == true)
