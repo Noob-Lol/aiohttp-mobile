@@ -90,8 +90,16 @@ def filter_matrix(candidates: list[dict[str, str]], repo: str, *, force: bool) -
             entry["cibw_environment"] = c["cibw_environment"]
         if "cibw_before_build" in c:
             entry["cibw_before_build"] = c["cibw_before_build"]
+        if "patch" in c:
+            entry["patch"] = c["patch"]
         matrix_entries.append(entry)
     return matrix_entries
+
+
+def maybe_join_list(val: list[str] | str, sep: str = " ") -> str:
+    if isinstance(val, list):
+        return sep.join(val)
+    return val
 
 
 def serialize_cibw_environment(val) -> str:
@@ -104,9 +112,8 @@ def serialize_cibw_environment(val) -> str:
             else:
                 parts.append(f"{k}={v}")
         return " ".join(parts)
-    if isinstance(val, list):
-        return " ".join(val)
-    return val  # already a string
+    val = maybe_join_list(val)
+    return val
 
 
 def make_candidate(name: str, version: str, pkg_config: dict) -> dict[str, str]:
@@ -115,6 +122,8 @@ def make_candidate(name: str, version: str, pkg_config: dict) -> dict[str, str]:
         entry["cibw_environment"] = serialize_cibw_environment(pkg_config["cibw_environment"])
     if "cibw_before_build" in pkg_config:
         entry["cibw_before_build"] = pkg_config["cibw_before_build"]
+    if "patch" in pkg_config:
+        entry["patch"] = maybe_join_list(pkg_config["patch"], " && ")
     return entry
 
 
