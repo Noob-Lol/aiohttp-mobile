@@ -67,6 +67,7 @@ name = "watchfiles"
 
 [[package]]
 name = "cryptography"
+cibw_environment = { OPENSSL_STATIC=1 } 
 
 [[package]]
 name = "cffi"
