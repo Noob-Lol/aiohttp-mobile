@@ -118,7 +118,7 @@ jobs:
          PATCH="${{ matrix.pkg.patch }}"
          if [[ -n "$PATCH" ]]; then
           PROJECT="$SDIST_SOURCE_DIR"
-          PATCH='${PATCH//\{project\}/$PROJECT}'
+          PATCH="${PATCH//\{project\}/$PROJECT}"
           echo "Applying patch:"
           echo '$PATCH'
           eval '$PATCH'
