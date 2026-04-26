@@ -26,10 +26,12 @@ name = "aiohttp"
 # niquests compiled <3
 [[package]]
 name = "charset_normalizer"
-cibw_environment = "PIP_NO_BINARY=mypy, CHARSET_NORMALIZER_USE_MYPYC=1"
+cibw_environment = { PIP_NO_BINARY = "mypy", CHARSET_NORMALIZER_USE_MYPYC = "1" }
 
 [[package]]
 name = "jh2"
+cibw_environment = { MATURIN_PEP517_ARGS = "--features pyo3/extension-module --features pyo3/generate-import-lib" }
+cibw_before_build = "sed -i 's/\"abi3-py37\", //' {project}/Cargo.toml"
 
 [[package]]
 name = "qh3"
