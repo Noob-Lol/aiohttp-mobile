@@ -6,6 +6,7 @@
 #   pin               – lock to a specific version; omit to always build latest
 #   cibw_environment  – extra env vars for CIBW_ENVIRONMENT_ANDROID (optional)
 #   cibw_before_build – commands to run before building via CIBW_BEFORE_BUILD_ANDROID (optional)
+#   patch             – arbitrary commands before the "before build" if it's too late
 
 # aiohttp
 [[package]]
@@ -26,13 +27,17 @@ name = "aiohttp"
 # niquests compiled <3
 [[package]]
 name = "charset_normalizer"
-cibw_environment = "PIP_NO_BINARY=mypy, CHARSET_NORMALIZER_USE_MYPYC=1"
+cibw_environment = { PIP_NO_BINARY = "mypy", CHARSET_NORMALIZER_USE_MYPYC = "1" }
 
 [[package]]
 name = "jh2"
+cibw_environment = { MATURIN_PEP517_ARGS = "--features pyo3/extension-module --features pyo3/generate-import-lib" }
+patch = "sed -i 's/\"abi3-py37\", //' {project}/Cargo.toml"
 
 [[package]]
 name = "qh3"
+cibw_environment = { MATURIN_PEP517_ARGS = "--features pyo3/extension-module --features pyo3/generate-import-lib", BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot" }
+patch = "sed -i 's/\"abi3-py37\", //' {project}/Cargo.toml"
 
 # speedups
 [[package]]
@@ -43,10 +48,9 @@ name = "orjson"
 # name = "uvloop"
 # fix env
 
-# [[package]]
-# name = "psutil"
-# cibw_before_build = "python -c 'import pathlib;q=chr(34);f=pathlib.Path(\"{package}/psutil/_common.py\");t=f.read_text();f.write_text(t.replace(f\"startswith({q}linux{q})\",f\"startswith(({q}linux{q}, {q}android{q}))\"))'"
-# sed is broken, this command also fails
+[[package]]
+name = "psutil"
+patch = "sed -i 's/sys.platform.startswith(\"linux\")/sys.platform.startswith((\"linux\", \"android\"))/g' {project}/psutil/_common.py"
 
 [[package]]
 name = "msgspec"

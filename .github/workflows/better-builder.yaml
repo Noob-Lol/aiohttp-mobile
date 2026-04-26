@@ -115,6 +115,15 @@ jobs:
          SRCDIR=$(ls -d work/src/*/ | head -1)
          echo "SDIST_SOURCE_DIR=${SRCDIR%/}" >> "$GITHUB_ENV"
 
+      - name: Patch sdist
+        if: matrix.pkg.patch != '' && (steps.wheel-cache.outputs.cache-hit != 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_rebuild == true))
+        env:
+          PATCH: ${{ matrix.pkg.patch }}
+        run: |
+          PATCH="${PATCH//\{project\}/$SDIST_SOURCE_DIR}"
+          echo "Applying patch: $PATCH"
+          bash -c "$PATCH"
+
       - name: Build wheel
         if: steps.wheel-cache.outputs.cache-hit != 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_rebuild == true)
         env:
