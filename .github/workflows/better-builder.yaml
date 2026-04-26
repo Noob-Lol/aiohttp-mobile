@@ -114,6 +114,14 @@ jobs:
          tar -xf work/dist/*.tar.gz -C work/src
          SRCDIR=$(ls -d work/src/*/ | head -1)
          echo "SDIST_SOURCE_DIR=${SRCDIR%/}" >> "$GITHUB_ENV"
+         PATCH="${{ matrix.pkg.patch }}"
+         if [[ -n "$PATCH" ]]; then
+          PATCH="${PATCH//\{project\}/$PROJECT}"
+          echo "Applying patch:"
+          echo "$PATCH"
+          PROJECT="$SDIST_SOURCE_DIR"
+          eval "$PATCH"
+         fi
 
       - name: Build wheel
         if: steps.wheel-cache.outputs.cache-hit != 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_rebuild == true)
