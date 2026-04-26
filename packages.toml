@@ -49,7 +49,16 @@ name = "orjson"
 
 [[package]]
 name = "psutil"
-patch = "sed -i 's/sys.platform.startswith(\"linux\")/sys.platform.startswith((\"linux\", \"android\"))/g' {project}/psutil/_common.py"
+patch = [
+  '''python -c "
+import re, pathlib
+p = pathlib.Path('{project}/psutil/_common.py')
+p.write_text(re.sub(
+    r'sys\.platform\.startswith\(\"linux\"\)',
+    'sys.platform.startswith((\"linux\", \"android\"))',
+    p.read_text()
+))"''',
+]
 
 [[package]]
 name = "msgspec"
