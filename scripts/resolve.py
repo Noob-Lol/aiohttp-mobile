@@ -112,8 +112,7 @@ def serialize_cibw_environment(val) -> str:
             else:
                 parts.append(f"{k}={v}")
         return " ".join(parts)
-    val = maybe_join_list(val)
-    return val
+    return maybe_join_list(val)
 
 
 def make_candidate(name: str, version: str, pkg_config: dict) -> dict[str, str]:
