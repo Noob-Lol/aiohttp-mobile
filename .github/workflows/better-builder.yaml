@@ -115,7 +115,7 @@ jobs:
          SRCDIR=$(ls -d work/src/*/ | head -1)
          SDIST_SOURCE_DIR=${SRCDIR%/}
          echo "SDIST_SOURCE_DIR=$SDIST_SOURCE_DIR" >> "$GITHUB_ENV"
-         PATCH='${{ matrix.pkg.patch }}'
+         PATCH="${{ matrix.pkg.patch }}"
          if [[ -n "$PATCH" ]]; then
           PROJECT="$SDIST_SOURCE_DIR"
           PATCH='${PATCH//\{project\}/$PROJECT}'
