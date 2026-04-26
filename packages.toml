@@ -49,7 +49,7 @@ name = "orjson"
 
 [[package]]
 name = "psutil"
-patch = '''sed -i 's/sys.platform.startswith("linux")/sys.platform.startswith(("linux", "android"))/g' {project}/psutil/_common.py'''
+patch = "sed -i 's/sys.platform.startswith(\"linux\")/sys.platform.startswith((\"linux\", \"android\"))/g' {project}/psutil/_common.py"
 
 [[package]]
 name = "msgspec"
