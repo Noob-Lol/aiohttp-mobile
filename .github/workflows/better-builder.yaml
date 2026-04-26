@@ -115,13 +115,13 @@ jobs:
          SRCDIR=$(ls -d work/src/*/ | head -1)
          SDIST_SOURCE_DIR=${SRCDIR%/}
          echo "SDIST_SOURCE_DIR=$SDIST_SOURCE_DIR" >> "$GITHUB_ENV"
-         PATCH="${{ matrix.pkg.patch }}"
+         PATCH='${{ matrix.pkg.patch }}'
          if [[ -n "$PATCH" ]]; then
           PROJECT="$SDIST_SOURCE_DIR"
-          PATCH="${PATCH//\{project\}/$PROJECT}"
+          PATCH='${PATCH//\{project\}/$PROJECT}'
           echo "Applying patch:"
-          echo "$PATCH"
-          eval "$PATCH"
+          echo '$PATCH'
+          eval '$PATCH'
          fi
 
       - name: Build wheel
