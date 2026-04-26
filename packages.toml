@@ -37,6 +37,7 @@ patch = "sed -i 's/\"abi3-py37\", //' {project}/Cargo.toml"
 [[package]]
 name = "qh3"
 cibw_environment = { MATURIN_PEP517_ARGS = "--features pyo3/extension-module --features pyo3/generate-import-lib", BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot" }
+cibw_before_build = "rm -rf {package}/target/*/release/build/aws-lc-sys-*"
 patch = "sed -i 's/\"abi3-py37\", //' {project}/Cargo.toml"
 
 # speedups
