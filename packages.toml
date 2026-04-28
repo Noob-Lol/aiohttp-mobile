@@ -89,4 +89,4 @@ name = "pymongo"
 
 [[package]]
 name = "lxml"
-cibw_before_build = "mkdir -p /system/bin && ln -sf /bin/sh /system/bin/sh"
+patch = "mkdir -p /system/bin && ln -sf /bin/sh /system/bin/sh"
