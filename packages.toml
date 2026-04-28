@@ -87,3 +87,6 @@ name = "hiredis"
 [[package]]
 name = "pymongo"
 
+[[package]]
+name = "lxml"
+
