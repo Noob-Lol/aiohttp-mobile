@@ -90,8 +90,8 @@ name = "pymongo"
 [[package]]
 name = "audioop-lts"
 
-[[package]]
-name = "lxml"
-cibw_environment = { STATICBUILD=1 }
-patch = "sed -i 's|shell=True,|shell=True, executable=\"/bin/sh\",|g' {project}/setupinfo.py"
+# [[package]]
+# name = "lxml"
+# cibw_environment = { STATICBUILD=1 }
+# patch = "sed -i 's|shell=True,|shell=True, executable=\"/bin/sh\",|g' {project}/setupinfo.py"
 
