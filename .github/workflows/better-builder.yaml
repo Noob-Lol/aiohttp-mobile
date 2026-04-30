@@ -22,7 +22,6 @@ on:
 
 env:
   WHEEL_PY_TAGS: cp313-cp314
-  RELEASE_PYTHON_LABELS: CP3.13, CP3.14
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -194,12 +193,39 @@ jobs:
           VER="${{ matrix.pkg.version }}"
           TAG="${{ matrix.pkg.tag }}"
 
+          # Parse built wheel files to determine wheel type and python versions
+          WHEEL_TYPES=()
+          PY_VERSIONS=""
+          
+          py_tags=$(for f in dist/*.whl; do basename "$f" | rev | cut -d'-' -f3 | rev; done | sort -u)
+          abi_tags=$(for f in dist/*.whl; do basename "$f" | rev | cut -d'-' -f2 | rev; done | sort -u)
+          
+          if echo "$abi_tags" | grep -q "abi3"; then
+             WHEEL_TYPES+=("Stable ABI")
+          fi
+          if echo "$abi_tags" | grep -q "^cp"; then
+             WHEEL_TYPES+=("CPython normal")
+          fi
+          
+          WHEEL_TYPE_STR=$(IFS=", "; echo "${WHEEL_TYPES[*]}")
+          
+          cp_versions=$(echo "$py_tags" | grep -o 'cp3[0-9]*' | sed 's/cp3/3./' | sort -uV | paste -sd ", " || true)
+          if [ -n "$cp_versions" ]; then
+             PY_VERSIONS="$cp_versions"
+             if echo "$abi_tags" | grep -q "abi3"; then
+                PY_VERSIONS="${PY_VERSIONS}+"
+             fi
+          else
+             PY_VERSIONS="Unknown"
+          fi
+
           BODY="| ABI | Target |
           |---|---|
           | \`arm64_v8a\` | Physical devices (Android 7+, API 24) |
           | \`x86_64\`    | Emulators |
 
-          Python: **${{ env.RELEASE_PYTHON_LABELS }}**
+          **Wheel Type:** ${WHEEL_TYPE_STR:-Unknown}
+          **Python:** ${PY_VERSIONS}
 
           Built from PyPI sdist by GitHub Actions.
           "
