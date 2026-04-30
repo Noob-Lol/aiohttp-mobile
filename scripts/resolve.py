@@ -19,6 +19,7 @@ Usage:
 """
 
 import argparse
+import concurrent.futures
 import json
 import os
 import re
@@ -74,9 +75,17 @@ def release_exists(tag: str, repo: str) -> bool:
 
 def filter_matrix(candidates: list[dict[str, str]], repo: str, *, force: bool) -> list[dict[str, str]]:
     matrix_entries = []
-    for c in candidates:
+
+    def check_release(c: dict[str, str]) -> tuple[dict[str, str], str, bool]:
         tag = f"{c['name']}-v{c['version']}"
-        if not force and release_exists(tag, repo):
+        exists = not force and release_exists(tag, repo)
+        return c, tag, exists
+
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        results = list(executor.map(check_release, candidates))
+
+    for c, tag, exists in results:
+        if exists:
             print(f"  SKIP  {tag}", file=sys.stderr)
             continue
         print(f"  BUILD {tag}", file=sys.stderr)
@@ -157,11 +166,13 @@ def main() -> None:
         version = args.version.strip() or pypi_latest(pkg_name)
         candidates = [make_candidate(pkg_name, version, pkg_config)]
     else:
-        candidates = []
-        for pkg in config["package"]:
+        def process_pkg(pkg: dict) -> dict[str, str]:
             name = normalize(pkg["name"])
             version = pkg.get("pin", "") or pypi_latest(name)
-            candidates.append(make_candidate(name, version, pkg))
+            return make_candidate(name, version, pkg)
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            candidates = list(executor.map(process_pkg, config["package"]))
 
     # Filter out already-released entries
     matrix_entries = filter_matrix(candidates, repo, force=args.force)
