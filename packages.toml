@@ -42,8 +42,7 @@ patch = "sed -i 's/abi3-py3[0-9][0-9]*/abi3-py313/g' {project}/Cargo.toml {proje
 
 [[package]]
 name = "qh3"
-cibw_environment = { BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot" }
-cibw_before_build = "rm -rf {package}/target/*/release/build/aws-lc-sys-*"
+cibw_environment = { BINDGEN_EXTRA_CLANG_ARGS = "--sysroot=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot" }
 patch = "sed -i 's/abi3-py3[0-9][0-9]*/abi3-py313/g' {project}/Cargo.toml {project}/pyproject.toml"
 
 # speedups
@@ -93,4 +92,3 @@ name = "audioop-lts"
 # name = "lxml"
 # cibw_environment = { STATICBUILD=1 }
 # patch = "sed -i 's|shell=True,|shell=True, executable=\"/bin/sh\",|g' {project}/setupinfo.py"
-
