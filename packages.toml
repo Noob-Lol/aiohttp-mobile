@@ -8,7 +8,10 @@
 #   cibw_before_build – commands to run before building via CIBW_BEFORE_BUILD_ANDROID (optional)
 #   patch             – arbitrary commands before the "before build" if it's too late
 
-# aiohttp
+# aiohttp + deps
+[[package]]
+name = "aiohttp"
+
 [[package]]
 name = "frozenlist"
 
@@ -21,8 +24,12 @@ name = "propcache"
 [[package]]
 name = "yarl"
 
+# aio speed
 [[package]]
-name = "aiohttp"
+name = "pycares"
+
+[[package]]
+name = "brotli"
 
 # niquests compiled <3
 [[package]]
@@ -79,4 +86,12 @@ name = "hiredis"
 
 [[package]]
 name = "pymongo"
+
+[[package]]
+name = "audioop-lts"
+
+# [[package]]
+# name = "lxml"
+# cibw_environment = { STATICBUILD=1 }
+# patch = "sed -i 's|shell=True,|shell=True, executable=\"/bin/sh\",|g' {project}/setupinfo.py"
 
