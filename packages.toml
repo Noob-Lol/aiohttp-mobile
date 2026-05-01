@@ -77,6 +77,10 @@ name = "watchfiles"
 #name = "numpy"
 
 [[package]]
+name = "opencv-python"
+cibw_environment = "ENABLE_HEADLESS=1 CMAKE_ARGS='-DWITH_FFMPEG=OFF -DWITH_GTK=OFF -DWITH_QT=OFF'"
+
+[[package]]
 name = "jiter"
 
 [[package]]
