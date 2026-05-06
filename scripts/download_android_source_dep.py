@@ -143,6 +143,7 @@ def safe_extract_tar_gz(archive_data: bytes, dest: Path) -> Path:
 
 
 def install_dependency(spec: DependencySpec, arch: str, dest: Path) -> InstalledDependency:
+    dest = dest.resolve()
     host_triple = ARCH_TRIPLES[arch]
     version = spec.version or latest_version(spec.name)
     install_dir = dest / spec.name / version / host_triple
@@ -150,6 +151,9 @@ def install_dependency(spec: DependencySpec, arch: str, dest: Path) -> Installed
 
     if marker.exists():
         root = Path(marker.read_text(encoding="utf-8").strip())
+        if not root.is_absolute():
+            root = root.resolve()
+            marker.write_text(str(root) + "\n", encoding="utf-8")
         return InstalledDependency(spec.name, version, root)
 
     if install_dir.exists():
