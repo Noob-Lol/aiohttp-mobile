@@ -123,6 +123,18 @@ jobs:
           echo "Applying patch: $PATCH"
           bash -c "$PATCH"
 
+      - name: Update Rust toolchain if needed
+        if: steps.wheel-cache.outputs.cache-hit != 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_rebuild == true)
+        run: |
+          if ! find "$SDIST_SOURCE_DIR" -maxdepth 3 -name Cargo.toml -print -quit | grep -q .; then
+            echo "No Cargo.toml found; skipping Rust toolchain update."
+            exit 0
+          fi
+          rustup set profile minimal
+          rustup update stable
+          rustup default stable
+          rustc --version
+
       - name: Build wheel
         if: steps.wheel-cache.outputs.cache-hit != 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_rebuild == true)
         env:
