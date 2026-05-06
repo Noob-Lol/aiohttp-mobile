@@ -188,11 +188,8 @@ def build_environment(installed: list[InstalledDependency]) -> list[str]:
     by_name = {dep.name: dep for dep in installed}
     assignments = []
     if dep := by_name.get("libffi"):
-        assignments.extend([
-            env_assignment("PKG_CONFIG_LIBDIR", f"$PKG_CONFIG_LIBDIR:{dep.root}/lib/pkgconfig"),
-            env_assignment("CFLAGS", f"$CFLAGS -I{dep.root}/include"),
-            env_assignment("LDFLAGS", f"-L{dep.root}/lib $LDFLAGS"),
-        ])
+        # name from upstream pull
+        assignments.extend([env_assignment("LIBFFI_ANDROID_DIR", str(dep.root))])
     if dep := by_name.get("openssl"):
         assignments.extend([
             env_assignment("OPENSSL_DIR", str(dep.root)),
