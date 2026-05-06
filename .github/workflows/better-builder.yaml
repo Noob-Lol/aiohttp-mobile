@@ -218,30 +218,41 @@ jobs:
           TAG="${{ matrix.pkg.tag }}"
 
           # Parse built wheel files to determine wheel type and python versions
-          WHEEL_TYPES=()
+          shopt -s nullglob
+
+          WHEEL_TYPE="Unknown"
           PY_VERSIONS=""
-          
-          py_tags=$(for f in dist/*.whl; do basename "$f" | rev | cut -d'-' -f3 | rev; done | sort -u)
-          abi_tags=$(for f in dist/*.whl; do basename "$f" | rev | cut -d'-' -f2 | rev; done | sort -u)
-          
-          if echo "$abi_tags" | grep -q "abi3"; then
-             WHEEL_TYPES+=("Stable ABI")
+
+          # 1. Extract tags using awk (reliable even if filenames have extra dashes)
+          raw_tags=$(for f in dist/*.whl; do
+            basename "$f" .whl | awk -F'-' '{print $(NF-2), $(NF-1)}'
+          done)
+
+          py_tags=$(echo "$raw_tags" | awk '{print $1}' | tr '.' '\n' | sort -u)
+          abi_tags=$(echo "$raw_tags" | awk '{print $2}' | sort -u)
+
+          # 2. Determine Wheel Type (Mutually Exclusive)
+          if [[ "$abi_tags" =~ "abi3" ]]; then
+            WHEEL_TYPE="Stable ABI"
+          elif [[ "$abi_tags" =~ cp[0-9]+ ]]; then
+            WHEEL_TYPE="CPython normal"
           fi
-          if echo "$abi_tags" | grep -q "^cp"; then
-             WHEEL_TYPES+=("CPython normal")
-          fi
-          
-          WHEEL_TYPE_STR=$(IFS=", "; echo "${WHEEL_TYPES[*]}")
-          
-          cp_versions=$(echo "$py_tags" | grep -o 'cp3[0-9]*' | sed 's/cp3/3./' | sort -uV | paste -sd ", " || true)
-          if [ -n "$cp_versions" ]; then
-             PY_VERSIONS="$cp_versions"
-             if echo "$abi_tags" | grep -q "abi3"; then
-                PY_VERSIONS="${PY_VERSIONS}+"
-             fi
+
+          # 3. Process Versions into comma-space separated string
+          mapfile -t v_array < <(echo "$py_tags" | grep -o 'cp3[0-9]*' | sed 's/cp3/3./' | sort -uV)
+
+          if [ ${#v_array[@]} -gt 0 ]; then
+            # Join array with ", "
+            PY_VERSIONS=$(IFS=", "; echo "${v_array[*]}")
+
+            # Append '+' if it's a Stable ABI build
+            [[ "$WHEEL_TYPE" == "Stable ABI" ]] && PY_VERSIONS="${PY_VERSIONS}+"
           else
-             PY_VERSIONS="Unknown"
+            PY_VERSIONS="Unknown"
           fi
+
+          # Clean up
+          shopt -u nullglob
 
           BODY="| ABI | Target |
           |---|---|
