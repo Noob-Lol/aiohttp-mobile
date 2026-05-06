@@ -77,7 +77,7 @@ android_source_deps = { libffi = "3.4.4-3" }
 
 [[package]]
 name = "cryptography"
-android_source_deps = { openssl = "3.5.6-0" }
+android_source_deps = { libffi = "3.4.4-3", openssl = "3.5.6-0" }
 
 #[[package]]
 #name = "numpy"

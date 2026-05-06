@@ -182,28 +182,14 @@ def env_assignment(name: str, value: str) -> str:
 
 
 def build_environment(installed: list[InstalledDependency]) -> list[str]:
-    include_flags = [f"-I{dep.root}/include" for dep in installed]
-    lib_flags = [f"-L{dep.root}/lib" for dep in installed]
     pkg_config_paths = [f"{dep.root}/lib/pkgconfig" for dep in installed]
-    assignments = [
-        env_assignment("CFLAGS", f"{' '.join(include_flags)} $CFLAGS"),
-        env_assignment("LDFLAGS", f"{' '.join(lib_flags)} $LDFLAGS"),
-        env_assignment("PKG_CONFIG_PATH", f"{':'.join(pkg_config_paths)}:$PKG_CONFIG_PATH"),
-    ]
+    assignments = [env_assignment("PKG_CONFIG_PATH", ":".join(pkg_config_paths))]
 
     by_name = {dep.name: dep for dep in installed}
-    if dep := by_name.get("libffi"):
-        assignments.extend([
-            env_assignment("LIBFFI_ROOT", str(dep.root)),
-            env_assignment("LIBFFI_INCLUDEDIR", f"{dep.root}/include"),
-            env_assignment("LIBFFI_LIBDIR", f"{dep.root}/lib"),
-        ])
     if dep := by_name.get("openssl"):
         assignments.extend([
             env_assignment("OPENSSL_DIR", str(dep.root)),
-            env_assignment("OPENSSL_ROOT_DIR", str(dep.root)),
-            env_assignment("OPENSSL_INCLUDE_DIR", f"{dep.root}/include"),
-            env_assignment("OPENSSL_LIB_DIR", f"{dep.root}/lib"),
+            "OPENSSL_STATIC=1",
         ])
 
     return assignments
