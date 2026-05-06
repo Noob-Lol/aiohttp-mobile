@@ -18,11 +18,9 @@ from __future__ import annotations
 import argparse
 import io
 import json
-import os
 import shutil
 import sys
 import tarfile
-import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -121,14 +119,14 @@ def asset_url(name: str, version: str, host_triple: str) -> str:
 
 def safe_extract_tar_gz(archive_data: bytes, dest: Path) -> Path:
     dest.mkdir(parents=True, exist_ok=True)
+    dest = dest.resolve()
 
     with tarfile.open(fileobj=io.BytesIO(archive_data), mode="r:gz") as tf:
         members = tf.getmembers()
-        top_dirs = {member.name.split("/", 1)[0] for member in members if member.name}
 
         for member in members:
             target = (dest / member.name).resolve()
-            if os.path.commonpath([dest.resolve(), target]) != str(dest.resolve()):
+            if dest not in [target, *target.parents]:
                 msg = f"refusing to extract archive member outside destination: {member.name}"
                 raise RuntimeError(msg)
 
@@ -137,9 +135,28 @@ def safe_extract_tar_gz(archive_data: bytes, dest: Path) -> Path:
         else:
             tf.extractall(dest, members)
 
-    if len(top_dirs) == 1:
-        return dest / next(iter(top_dirs))
     return dest
+
+
+def find_install_root(dep: str, extracted_dir: Path) -> Path:
+    pkg_config_dirs = sorted(extracted_dir.glob("**/lib/pkgconfig"))
+    if not pkg_config_dirs:
+        msg = f"could not find lib/pkgconfig in extracted {dep} archive"
+        raise RuntimeError(msg)
+
+    roots = [path.parent.parent for path in pkg_config_dirs]
+    if dep == "libffi":
+        for root in roots:
+            if (root / "include" / "ffi.h").exists():
+                return root
+        msg = "could not find include/ffi.h in extracted libffi archive"
+        raise RuntimeError(msg)
+    if dep == "openssl":
+        for root in roots:
+            if (root / "include" / "openssl").is_dir():
+                return root
+
+    return roots[0]
 
 
 def install_dependency(spec: DependencySpec, arch: str, dest: Path) -> InstalledDependency:
@@ -147,33 +164,15 @@ def install_dependency(spec: DependencySpec, arch: str, dest: Path) -> Installed
     host_triple = ARCH_TRIPLES[arch]
     version = spec.version or latest_version(spec.name)
     install_dir = dest / spec.name / version / host_triple
-    marker = install_dir / ".complete"
-
-    if marker.exists():
-        root = Path(marker.read_text(encoding="utf-8").strip())
-        if not root.is_absolute():
-            root = root.resolve()
-            marker.write_text(str(root) + "\n", encoding="utf-8")
-        return InstalledDependency(spec.name, version, root)
 
     if install_dir.exists():
         shutil.rmtree(install_dir)
 
     archive = fetch_bytes(asset_url(spec.name, version, host_triple))
+    safe_extract_tar_gz(archive, install_dir)
+    root = find_install_root(spec.name, install_dir).resolve()
 
-    install_dir.parent.mkdir(parents=True, exist_ok=True)
-    tmp_dir = Path(tempfile.mkdtemp(prefix=f".{spec.name}-{version}-", dir=install_dir.parent))
-    try:
-        extracted_root = safe_extract_tar_gz(archive, tmp_dir).resolve()
-        final_root = install_dir / extracted_root.relative_to(tmp_dir.resolve())
-        (tmp_dir / ".complete").write_text(str(final_root) + "\n", encoding="utf-8")
-        tmp_dir.replace(install_dir)
-    except Exception:
-        if tmp_dir.exists():
-            shutil.rmtree(tmp_dir)
-        raise
-
-    return InstalledDependency(spec.name, version, final_root)
+    return InstalledDependency(spec.name, version, root)
 
 
 def quote_env_value(value: str) -> str:
@@ -186,10 +185,14 @@ def env_assignment(name: str, value: str) -> str:
 
 
 def build_environment(installed: list[InstalledDependency]) -> list[str]:
-    pkg_config_paths = [f"{dep.root}/lib/pkgconfig" for dep in installed]
-    assignments = [env_assignment("PKG_CONFIG_PATH", ":".join(pkg_config_paths))]
-
     by_name = {dep.name: dep for dep in installed}
+    assignments = []
+    if dep := by_name.get("libffi"):
+        assignments.extend([
+            env_assignment("PKG_CONFIG_PATH", f"{dep.root}/lib/pkgconfig"),
+            env_assignment("CFLAGS", f"-I{dep.root}/include $CFLAGS"),
+            env_assignment("LDFLAGS", f"-L{dep.root}/lib $LDFLAGS"),
+        ])
     if dep := by_name.get("openssl"):
         assignments.extend([
             env_assignment("OPENSSL_DIR", str(dep.root)),
