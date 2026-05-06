@@ -126,7 +126,7 @@ def safe_extract_tar_gz(archive_data: bytes, dest: Path) -> Path:
 
         for member in members:
             target = (dest / member.name).resolve()
-            if dest not in [target, *target.parents]:
+            if dest not in {target, *target.parents}:
                 msg = f"refusing to extract archive member outside destination: {member.name}"
                 raise RuntimeError(msg)
 
@@ -189,8 +189,8 @@ def build_environment(installed: list[InstalledDependency]) -> list[str]:
     assignments = []
     if dep := by_name.get("libffi"):
         assignments.extend([
-            env_assignment("PKG_CONFIG_PATH", f"{dep.root}/lib/pkgconfig"),
-            env_assignment("CFLAGS", f"-I{dep.root}/include $CFLAGS"),
+            env_assignment("PKG_CONFIG_LIBDIR", f"$PKG_CONFIG_LIBDIR:{dep.root}/lib/pkgconfig"),
+            env_assignment("CFLAGS", f"$CFLAGS -I{dep.root}/include"),
             env_assignment("LDFLAGS", f"-L{dep.root}/lib $LDFLAGS"),
         ])
     if dep := by_name.get("openssl"):
