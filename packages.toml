@@ -7,6 +7,7 @@
 #   cibw_environment  – extra env vars for CIBW_ENVIRONMENT_ANDROID (optional)
 #   cibw_before_build – commands to run before building via CIBW_BEFORE_BUILD_ANDROID (optional)
 #   patch             – arbitrary commands before the "before build" if it's too late
+#   android_source_deps – Android native deps in form { lib = "version-rev" } (optional)
 
 # aiohttp + deps
 [[package]]
@@ -70,8 +71,13 @@ name = "pydantic_core"
 [[package]]
 name = "watchfiles"
 
-#[[package]]
-#name = "cffi"
+[[package]]
+name = "cffi"
+android_source_deps = { libffi = "3.4.4-3" }
+
+[[package]]
+name = "cryptography"
+android_source_deps = { openssl = "3.5.6-0" }
 
 #[[package]]
 #name = "numpy"

@@ -123,6 +123,23 @@ jobs:
           echo "Applying patch: $PATCH"
           bash -c "$PATCH"
 
+      - name: Download Android source deps
+        if: matrix.pkg.android_source_deps != null && matrix.pkg.android_source_deps != '' && (steps.wheel-cache.outputs.cache-hit != 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_rebuild == true))
+        env:
+          ARCH: ${{ matrix.arch }}
+          ANDROID_SOURCE_DEPS: ${{ matrix.pkg.android_source_deps }}
+        run: |
+          mkdir -p work/android-deps
+          read -ra deps <<< "$ANDROID_SOURCE_DEPS"
+          extra_env="$(uv run scripts/download_android_source_dep.py "${deps[@]}" --arch "$ARCH" --dest work/android-deps)"
+          extra_env="${extra_env//$'\n'/ }"
+
+          {
+            echo "EXTRA_CIBW_ENVIRONMENT_ANDROID<<EOF"
+            printf '%s\n' "$extra_env"
+            echo "EOF"
+          } >> "$GITHUB_ENV"
+
       - name: Build wheel
         if: steps.wheel-cache.outputs.cache-hit != 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_rebuild == true)
         env:
@@ -130,11 +147,12 @@ jobs:
           CIBW_ARCHS_ANDROID:         ${{ matrix.arch }}
           CIBW_BUILD_FRONTEND:        build[uv]
           CIBW_TEST_SKIP:             '*'
-          CIBW_ENVIRONMENT_ANDROID:   ${{ matrix.pkg.cibw_environment || '' }}
+          BASE_CIBW_ENVIRONMENT_ANDROID: ${{ matrix.pkg.cibw_environment || '' }}
           CIBW_BEFORE_BUILD_ANDROID:  ${{ matrix.pkg.cibw_before_build || '' }}
           ANDROID_API_LEVEL:          '24'
           SETUPTOOLS_SCM_PRETEND_VERSION: ${{ matrix.pkg.version }}
         run: |
+          export CIBW_ENVIRONMENT_ANDROID="${BASE_CIBW_ENVIRONMENT_ANDROID:-} ${EXTRA_CIBW_ENVIRONMENT_ANDROID:-}"
           cd "$SDIST_SOURCE_DIR"
           cibuildwheel --output-dir "$GITHUB_WORKSPACE/wheelhouse"
 
