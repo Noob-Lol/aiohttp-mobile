@@ -225,7 +225,7 @@ jobs:
           | \`x86_64\`    | Emulators |
 
           **Wheel Type:** ${WHEEL_TYPE_STR:-Unknown}
-          **Python:** ${PY_VERSIONS}
+          **CPython:** ${PY_VERSIONS}
 
           Built from PyPI sdist by GitHub Actions.
           "
