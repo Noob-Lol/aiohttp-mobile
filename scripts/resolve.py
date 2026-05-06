@@ -31,6 +31,8 @@ from pathlib import Path
 
 import tomllib
 
+StrMap = dict[str, str]
+
 
 def normalize(name: str) -> str:
     """PEP 503 normalize a package name."""
@@ -73,10 +75,10 @@ def release_exists(tag: str, repo: str) -> bool:
     raise RuntimeError(msg)
 
 
-def filter_matrix(candidates: list[dict[str, str]], repo: str, *, force: bool) -> list[dict[str, str]]:
-    matrix_entries = []
+def filter_matrix(candidates: list[StrMap], repo: str, *, force: bool) -> list[StrMap]:
+    matrix_entries: list[StrMap] = []
 
-    def check_release(c: dict[str, str]) -> tuple[dict[str, str], str, bool]:
+    def check_release(c: StrMap) -> tuple[StrMap, str, bool]:
         tag = f"{c['name']}-v{c['version']}"
         exists = not force and release_exists(tag, repo)
         return c, tag, exists
@@ -89,19 +91,7 @@ def filter_matrix(candidates: list[dict[str, str]], repo: str, *, force: bool) -
             print(f"  SKIP  {tag}", file=sys.stderr)
             continue
         print(f"  BUILD {tag}", file=sys.stderr)
-        entry = {
-            "name": c["name"],
-            "version": c["version"],
-            "tag": tag,
-        }
-        # Pass through optional cibuildwheel overrides
-        if "cibw_environment" in c:
-            entry["cibw_environment"] = c["cibw_environment"]
-        if "cibw_before_build" in c:
-            entry["cibw_before_build"] = c["cibw_before_build"]
-        if "patch" in c:
-            entry["patch"] = c["patch"]
-        matrix_entries.append(entry)
+        matrix_entries.append({**c, "tag": tag})
     return matrix_entries
 
 
@@ -124,8 +114,8 @@ def serialize_cibw_environment(val) -> str:
     return maybe_join_list(val)
 
 
-def make_candidate(name: str, version: str, pkg_config: dict) -> dict[str, str]:
-    entry: dict[str, str] = {"name": name, "version": version}
+def make_candidate(name: str, version: str, pkg_config: StrMap) -> StrMap:
+    entry: StrMap = {"name": name, "version": version}
     if "cibw_environment" in pkg_config:
         entry["cibw_environment"] = serialize_cibw_environment(pkg_config["cibw_environment"])
     if "cibw_before_build" in pkg_config:
@@ -166,7 +156,8 @@ def main() -> None:
         version = args.version.strip() or pypi_latest(pkg_name)
         candidates = [make_candidate(pkg_name, version, pkg_config)]
     else:
-        def process_pkg(pkg: dict) -> dict[str, str]:
+
+        def process_pkg(pkg: StrMap) -> StrMap:
             name = normalize(pkg["name"])
             version = pkg.get("pin", "") or pypi_latest(name)
             return make_candidate(name, version, pkg)
