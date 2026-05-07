@@ -242,7 +242,7 @@ jobs:
           WHEEL_TYPE="Unknown"
           PY_VERSIONS=""
 
-          # 1. Extract tags using awk (reliable even if filenames have extra dashes)
+          # 1. Extract tags (Counting from the end is safer for wheel names)
           raw_tags=$(for f in dist/*.whl; do
             basename "$f" .whl | awk -F'-' '{print $(NF-2), $(NF-1)}'
           done)
@@ -261,16 +261,13 @@ jobs:
           mapfile -t v_array < <(echo "$py_tags" | grep -o 'cp3[0-9]*' | sed 's/cp3/3./' | sort -uV)
 
           if [ ${#v_array[@]} -gt 0 ]; then
-            # Join array with ", "
-            PY_VERSIONS=$(IFS=", "; echo "${v_array[*]}")
-
-            # Append '+' if it's a Stable ABI build
+            printf -v PY_VERSIONS "%s, " "${v_array[@]}"
+            PY_VERSIONS="${PY_VERSIONS%, }" 
             [[ "$WHEEL_TYPE" == "Stable ABI" ]] && PY_VERSIONS="${PY_VERSIONS}+"
           else
             PY_VERSIONS="Unknown"
           fi
 
-          # Clean up
           shopt -u nullglob
 
           BODY="| ABI | Target |
