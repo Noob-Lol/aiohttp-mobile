@@ -74,7 +74,7 @@ name = "watchfiles"
 [[package]]
 name = "cffi"
 android_source_deps = { libffi = "3.4.4-3" }
-cibw_before_build = "prefix=$(python -c 'import sys; print(sys.prefix)') && mkdir -p \"$prefix/include\" \"$prefix/lib\" && cp -a \"$LIBFFI_ANDROID_DIR/include/.\" \"$prefix/include/\" && cp -a \"$LIBFFI_ANDROID_DIR/lib/.\" \"$prefix/lib/\""
+patch = "sed -i 's|use_pkg_config()|d=os.environ.get(\"LIBFFI_ANDROID_DIR\"); include_dirs.append(os.path.join(d,\"include\")); library_dirs.append(os.path.join(d,\"lib\"))|' {project}/setup.py"
 
 [[package]]
 name = "cryptography"
