@@ -138,27 +138,6 @@ def safe_extract_tar_gz(archive_data: bytes, dest: Path) -> Path:
     return dest
 
 
-def find_install_root(dep: str, extracted_dir: Path) -> Path:
-    pkg_config_dirs = sorted(extracted_dir.glob("**/lib/pkgconfig"))
-    if not pkg_config_dirs:
-        msg = f"could not find lib/pkgconfig in extracted {dep} archive"
-        raise RuntimeError(msg)
-
-    roots = [path.parent.parent for path in pkg_config_dirs]
-    if dep == "libffi":
-        for root in roots:
-            if (root / "include" / "ffi.h").exists():
-                return root
-        msg = "could not find include/ffi.h in extracted libffi archive"
-        raise RuntimeError(msg)
-    if dep == "openssl":
-        for root in roots:
-            if (root / "include" / "openssl").is_dir():
-                return root
-
-    return roots[0]
-
-
 def install_dependency(spec: DependencySpec, arch: str, dest: Path) -> InstalledDependency:
     dest = dest.resolve()
     host_triple = ARCH_TRIPLES[arch]
@@ -169,8 +148,7 @@ def install_dependency(spec: DependencySpec, arch: str, dest: Path) -> Installed
         shutil.rmtree(install_dir)
 
     archive = fetch_bytes(asset_url(spec.name, version, host_triple))
-    safe_extract_tar_gz(archive, install_dir)
-    root = find_install_root(spec.name, install_dir).resolve()
+    root = safe_extract_tar_gz(archive, install_dir)
     return InstalledDependency(spec.name, version, root)
 
 
@@ -190,10 +168,7 @@ def build_environment(installed: list[InstalledDependency]) -> list[str]:
         # name from upstream pull
         assignments.extend([env_assignment("LIBFFI_ANDROID_DIR", str(dep.root))])
     if dep := by_name.get("openssl"):
-        assignments.extend([
-            env_assignment("OPENSSL_DIR", str(dep.root)),
-            "OPENSSL_STATIC=1",
-        ])
+        assignments.extend([env_assignment("OPENSSL_DIR", str(dep.root)), "OPENSSL_STATIC=1"])
 
     return assignments
 
