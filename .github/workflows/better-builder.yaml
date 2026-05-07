@@ -278,7 +278,7 @@ jobs:
           | \`arm64_v8a\` | Physical devices (Android 7+, API 24) |
           | \`x86_64\`    | Emulators |
 
-          **Wheel Type:** ${WHEEL_TYPE_STR:-Unknown}
+          **Wheel Type:** ${WHEEL_TYPE}
           **CPython:** ${PY_VERSIONS}
 
           Built from PyPI sdist by GitHub Actions.
