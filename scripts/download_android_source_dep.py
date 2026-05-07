@@ -159,6 +159,18 @@ def find_install_root(dep: str, extracted_dir: Path) -> Path:
     return roots[0]
 
 
+def fix_libffi_pc(root: Path) -> None:
+    """Fix hardcoded build-machine prefix in libffi.pc and remove broken .la file."""
+    pc = root / "lib" / "pkgconfig" / "libffi.pc"
+    if pc.exists():
+        import re
+        text = pc.read_text()
+        text = re.sub(r"^prefix=.*", f"prefix={root}", text, flags=re.MULTILINE)
+        pc.write_text(text)
+    la = root / "lib" / "libffi.la"
+    if la.exists():
+        la.unlink()
+
 def install_dependency(spec: DependencySpec, arch: str, dest: Path) -> InstalledDependency:
     dest = dest.resolve()
     host_triple = ARCH_TRIPLES[arch]
@@ -171,6 +183,8 @@ def install_dependency(spec: DependencySpec, arch: str, dest: Path) -> Installed
     archive = fetch_bytes(asset_url(spec.name, version, host_triple))
     safe_extract_tar_gz(archive, install_dir)
     root = find_install_root(spec.name, install_dir).resolve()
+    if spec.name == "libffi":
+        fix_libffi_pc(root)
 
     return InstalledDependency(spec.name, version, root)
 
