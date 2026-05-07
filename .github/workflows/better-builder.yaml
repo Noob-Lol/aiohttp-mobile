@@ -123,6 +123,23 @@ jobs:
           echo "Applying patch: $PATCH"
           bash -c "$PATCH"
 
+      - name: Download Android source deps
+        if: matrix.pkg.android_source_deps != null && matrix.pkg.android_source_deps != '' && (steps.wheel-cache.outputs.cache-hit != 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_rebuild == true))
+        env:
+          ARCH: ${{ matrix.arch }}
+          ANDROID_SOURCE_DEPS: ${{ matrix.pkg.android_source_deps }}
+        run: |
+          mkdir -p work/android-deps
+          read -ra deps <<< "$ANDROID_SOURCE_DEPS"
+          extra_env="$(uv run scripts/download_android_source_dep.py "${deps[@]}" --arch "$ARCH" --dest work/android-deps)"
+          extra_env="${extra_env//$'\n'/ }"
+
+          {
+            echo "EXTRA_CIBW_ENVIRONMENT_ANDROID<<EOF"
+            printf '%s\n' "$extra_env"
+            echo "EOF"
+          } >> "$GITHUB_ENV"
+
       - name: Update Rust toolchain if needed
         if: steps.wheel-cache.outputs.cache-hit != 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_rebuild == true)
         run: |
@@ -142,14 +159,28 @@ jobs:
           CIBW_ARCHS_ANDROID:         ${{ matrix.arch }}
           CIBW_BUILD_FRONTEND:        build[uv]
           CIBW_TEST_SKIP:             '*'
-          CIBW_ENVIRONMENT_ANDROID:   ${{ matrix.pkg.cibw_environment || '' }}
+          BASE_CIBW_ENVIRONMENT_ANDROID: ${{ matrix.pkg.cibw_environment || '' }}
           CIBW_BEFORE_BUILD_ANDROID:  ${{ matrix.pkg.cibw_before_build || '' }}
           ANDROID_API_LEVEL:          '24'
           SETUPTOOLS_SCM_PRETEND_VERSION: ${{ matrix.pkg.version }}
         run: |
+          cibw_env="${BASE_CIBW_ENVIRONMENT_ANDROID:-}"
+          if [[ -n "${EXTRA_CIBW_ENVIRONMENT_ANDROID:-}" ]]; then
+            cibw_env="${cibw_env:+$cibw_env }$EXTRA_CIBW_ENVIRONMENT_ANDROID"
+          fi
+          if [[ -n "$cibw_env" ]]; then
+            export CIBW_ENVIRONMENT_ANDROID="$cibw_env"
+          fi
           cd "$SDIST_SOURCE_DIR"
           cibuildwheel --output-dir "$GITHUB_WORKSPACE/wheelhouse"
 
+      # - name: Debug with tmate
+      #   if: ${{ failure() && github.event_name == 'workflow_dispatch' }}
+      #   uses: mxschmitt/action-tmate@v3
+      #   timeout-minutes: 30
+      #   with:
+      #     limit-access-to-actor: true
+      
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
@@ -206,37 +237,45 @@ jobs:
           TAG="${{ matrix.pkg.tag }}"
 
           # Parse built wheel files to determine wheel type and python versions
-          WHEEL_TYPES=()
+          shopt -s nullglob
+
+          WHEEL_TYPE="Unknown"
           PY_VERSIONS=""
-          
-          py_tags=$(for f in dist/*.whl; do basename "$f" | rev | cut -d'-' -f3 | rev; done | sort -u)
-          abi_tags=$(for f in dist/*.whl; do basename "$f" | rev | cut -d'-' -f2 | rev; done | sort -u)
-          
-          if echo "$abi_tags" | grep -q "abi3"; then
-             WHEEL_TYPES+=("Stable ABI")
+
+          # 1. Extract tags (Counting from the end is safer for wheel names)
+          raw_tags=$(for f in dist/*.whl; do
+            basename "$f" .whl | awk -F'-' '{print $(NF-2), $(NF-1)}'
+          done)
+
+          py_tags=$(echo "$raw_tags" | awk '{print $1}' | tr '.' '\n' | sort -u)
+          abi_tags=$(echo "$raw_tags" | awk '{print $2}' | sort -u)
+
+          # 2. Determine Wheel Type (Mutually Exclusive)
+          if [[ "$abi_tags" =~ "abi3" ]]; then
+            WHEEL_TYPE="Stable ABI"
+          elif [[ "$abi_tags" =~ cp[0-9]+ ]]; then
+            WHEEL_TYPE="CPython normal"
           fi
-          if echo "$abi_tags" | grep -q "^cp"; then
-             WHEEL_TYPES+=("CPython normal")
-          fi
-          
-          WHEEL_TYPE_STR=$(IFS=", "; echo "${WHEEL_TYPES[*]}")
-          
-          cp_versions=$(echo "$py_tags" | grep -o 'cp3[0-9]*' | sed 's/cp3/3./' | sort -uV | paste -sd ", " || true)
-          if [ -n "$cp_versions" ]; then
-             PY_VERSIONS="$cp_versions"
-             if echo "$abi_tags" | grep -q "abi3"; then
-                PY_VERSIONS="${PY_VERSIONS}+"
-             fi
+
+          # 3. Process Versions into comma-space separated string
+          mapfile -t v_array < <(echo "$py_tags" | grep -o 'cp3[0-9]*' | sed 's/cp3/3./' | sort -uV)
+
+          if [ ${#v_array[@]} -gt 0 ]; then
+            printf -v PY_VERSIONS "%s, " "${v_array[@]}"
+            PY_VERSIONS="${PY_VERSIONS%, }" 
+            [[ "$WHEEL_TYPE" == "Stable ABI" ]] && PY_VERSIONS="${PY_VERSIONS}+"
           else
-             PY_VERSIONS="Unknown"
+            PY_VERSIONS="Unknown"
           fi
+
+          shopt -u nullglob
 
           BODY="| ABI | Target |
           |---|---|
           | \`arm64_v8a\` | Physical devices (Android 7+, API 24) |
           | \`x86_64\`    | Emulators |
 
-          **Wheel Type:** ${WHEEL_TYPE_STR:-Unknown}
+          **Wheel Type:** ${WHEEL_TYPE}
           **CPython:** ${PY_VERSIONS}
 
           Built from PyPI sdist by GitHub Actions.

@@ -114,6 +114,12 @@ def serialize_cibw_environment(val) -> str:
     return maybe_join_list(val)
 
 
+def serialize_android_source_deps(val) -> str:
+    if isinstance(val, dict):
+        return " ".join(f"{k}={v}" for k, v in val.items())
+    return maybe_join_list(val)
+
+
 def make_candidate(name: str, version: str, pkg_config: StrMap) -> StrMap:
     entry: StrMap = {"name": name, "version": version}
     if "cibw_environment" in pkg_config:
@@ -122,6 +128,8 @@ def make_candidate(name: str, version: str, pkg_config: StrMap) -> StrMap:
         entry["cibw_before_build"] = pkg_config["cibw_before_build"]
     if "patch" in pkg_config:
         entry["patch"] = maybe_join_list(pkg_config["patch"], " && ")
+    if "android_source_deps" in pkg_config:
+        entry["android_source_deps"] = serialize_android_source_deps(pkg_config["android_source_deps"])
     return entry
 
 
