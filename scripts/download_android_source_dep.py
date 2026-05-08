@@ -168,7 +168,7 @@ def build_environment(installed: list[InstalledDependency]) -> list[str]:
         # name from upstream pull
         assignments.extend([env_assignment("LIBFFI_ANDROID_DIR", str(dep.root))])
     if dep := by_name.get("openssl"):
-        assignments.extend([env_assignment("OPENSSL_DIR", str(dep.root)), "OPENSSL_STATIC=1"])
+        assignments.extend([env_assignment("OPENSSL_DIR", str(dep.root))])
 
     return assignments
 
