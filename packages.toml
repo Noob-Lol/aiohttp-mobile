@@ -100,3 +100,27 @@ name = "audioop-lts"
 # name = "lxml"
 # cibw_environment = { STATICBUILD=1 }
 # patch = "sed -i 's|shell=True,|shell=True, executable=\"/bin/sh\",|g' {project}/setupinfo.py"
+
+[[package]]
+name = "zstandard"
+
+[[package]]
+name = "MarkupSafe"
+
+[[package]]
+name = "lz4"
+
+[[package]]
+name = "regex"
+
+[[package]]
+name = "httptools"
+
+[[package]]
+name = "greenlet"
+
+[[package]]
+name = "bcrypt"
+
+[[package]]
+name = "argon2-cffi-bindings"
