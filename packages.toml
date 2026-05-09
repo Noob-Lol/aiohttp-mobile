@@ -124,3 +124,4 @@ name = "bcrypt"
 
 [[package]]
 name = "argon2-cffi-bindings"
+patch = "sed -i 's/pp310-[*]//g' {project}/pyproject.toml"
