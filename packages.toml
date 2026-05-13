@@ -54,9 +54,7 @@ name = "orjson"
 [[package]]
 name = "uvloop"
 android_source_deps = { libuv = "1.52.1" }
-# cibw_environment = { CFLAGS = "-I$LIBUV_DIR/include", LDFLAGS = "-L$LIBUV_DIR/lib" }
-cibw_before_build = "export CFLAGS=\"-I$LIBUV_DIR/include\" LDFLAGS=\"-L$LIBUV_DIR/lib\""
-patch = "sed -i 's/self.use_system_libuv = False/self.use_system_libuv = True/' {project}/setup.py"
+patch = "sed -i 's/self.use_system_libuv = False/self.use_system_libuv = True/' {project}/setup.py && sed -i '/if self.use_system_libuv:/a \\            d=os.environ.get(\"LIBUV_DIR\"); self.compiler.add_include_dir(os.path.join(d,\"include\")); self.compiler.add_library_dir(os.path.join(d,\"lib\"))' {project}/setup.py"
 
 [[package]]
 name = "psutil"
