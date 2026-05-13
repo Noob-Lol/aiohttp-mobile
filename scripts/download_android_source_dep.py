@@ -27,17 +27,17 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
-ANDROID_DEP_REPO = "beeware/cpython-android-source-deps"
-
-RELEASES_API = f"https://api.github.com/repos/{ANDROID_DEP_REPO}/releases"
-RELEASE_DOWNLOAD_BASE = f"https://github.com/{ANDROID_DEP_REPO}/releases/download"
+ANDROID_DEP_REPOS = ["beeware/cpython-android-source-deps", "noob-lol/android-static-libs"]
+# repo was ANDROID_DEP_REPO previously
+RELEASES_API = "https://api.github.com/repos/{repo}/releases"
+RELEASE_DOWNLOAD_BASE = "https://github.com/{repo}/releases/download"
 
 ARCH_TRIPLES = {
     "arm64_v8a": "aarch64-linux-android",
     "x86_64": "x86_64-linux-android",
 }
 
-SUPPORTED_DEPS = {"libffi", "openssl"}
+SUPPORTED_DEPS = {"libffi", "openssl", "libuv"}
 
 
 @dataclass(frozen=True)
@@ -50,6 +50,7 @@ class DependencySpec:
 class InstalledDependency:
     name: str
     version: str
+    repo: str
     root: Path
 
 
@@ -93,28 +94,35 @@ def parse_dependency_spec(spec: str) -> DependencySpec:
     return DependencySpec(name=name, version=version or None)
 
 
-def latest_version(name: str) -> str:
-    releases = fetch_json(f"{RELEASES_API}?per_page=100")
-    if not isinstance(releases, list):
-        msg = "GitHub releases API returned an unexpected response"
-        raise TypeError(msg)
+def find_dependency(name: str, requested_version: str | None) -> tuple[str, str]:
+    for repo in ANDROID_DEP_REPOS:
+        try:
+            releases = fetch_json(f"{RELEASES_API.format(repo=repo)}?per_page=100")
+            if not isinstance(releases, list):
+                continue
 
-    prefix = f"{name}-"
-    for release in releases:
-        if not isinstance(release, dict):
+            prefix = f"{name}-"
+            for release in releases:
+                if not isinstance(release, dict):
+                    continue
+                tag = str(release.get("tag_name", ""))
+                if tag.startswith(prefix):
+                    version = tag.removeprefix(prefix)
+                    if requested_version is None or version == requested_version:
+                        return version, repo
+        except Exception:
             continue
-        tag = str(release.get("tag_name", ""))
-        if tag.startswith(prefix):
-            return tag.removeprefix(prefix)
 
     msg = f"no GitHub release found for Android source dependency {name!r}"
+    if requested_version:
+        msg += f" with version {requested_version!r}"
     raise RuntimeError(msg)
 
 
-def asset_url(name: str, version: str, host_triple: str) -> str:
+def asset_url(repo: str, name: str, version: str, host_triple: str) -> str:
     name_version = f"{name}-{version}"
     filename = f"{name_version}-{host_triple}.tar.gz"
-    return f"{RELEASE_DOWNLOAD_BASE}/{name_version}/{filename}"
+    return f"{RELEASE_DOWNLOAD_BASE.format(repo=repo)}/{name_version}/{filename}"
 
 
 def safe_extract_tar_gz(archive_data: bytes, dest: Path) -> Path:
@@ -141,15 +149,15 @@ def safe_extract_tar_gz(archive_data: bytes, dest: Path) -> Path:
 def install_dependency(spec: DependencySpec, arch: str, dest: Path) -> InstalledDependency:
     dest = dest.resolve()
     host_triple = ARCH_TRIPLES[arch]
-    version = spec.version or latest_version(spec.name)
+    version, repo = find_dependency(spec.name, spec.version)
     install_dir = dest / spec.name / version / host_triple
 
     if install_dir.exists():
         shutil.rmtree(install_dir)
 
-    archive = fetch_bytes(asset_url(spec.name, version, host_triple))
+    archive = fetch_bytes(asset_url(repo, spec.name, version, host_triple))
     root = safe_extract_tar_gz(archive, install_dir)
-    return InstalledDependency(spec.name, version, root)
+    return InstalledDependency(spec.name, version, repo, root)
 
 
 def quote_env_value(value: str) -> str:
@@ -169,6 +177,8 @@ def build_environment(installed: list[InstalledDependency]) -> list[str]:
         assignments.extend([env_assignment("LIBFFI_ANDROID_DIR", str(dep.root))])
     if dep := by_name.get("openssl"):
         assignments.extend([env_assignment("OPENSSL_DIR", str(dep.root))])
+    if dep := by_name.get("libuv"):
+        assignments.extend([env_assignment("LIBUV_DIR", str(dep.root))])
 
     return assignments
 
