@@ -37,7 +37,7 @@ ARCH_TRIPLES = {
     "x86_64": "x86_64-linux-android",
 }
 
-SUPPORTED_DEPS = {"libffi", "openssl", "libuv"}
+SUPPORTED_DEPS = {"libffi", "openssl", "libuv", "libxml2", "libxslt"}
 
 
 @dataclass(frozen=True)
@@ -179,6 +179,10 @@ def build_environment(installed: list[InstalledDependency]) -> list[str]:
         assignments.extend([env_assignment("OPENSSL_DIR", str(dep.root))])
     if dep := by_name.get("libuv"):
         assignments.extend([env_assignment("LIBUV_DIR", str(dep.root))])
+    if dep := by_name.get("libxml2"):
+        assignments.extend([env_assignment("LIBXML2_DIR", str(dep.root))])
+    if dep := by_name.get("libxslt"):
+        assignments.extend([env_assignment("LIBXSLT_DIR", str(dep.root))])
 
     return assignments
 
