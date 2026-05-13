@@ -143,12 +143,6 @@ def safe_extract_tar_gz(archive_data: bytes, dest: Path) -> Path:
         else:
             tf.extractall(dest, members)
 
-    # If the archive contained a single top-level directory that has include/lib,
-    # return that as the root.
-    entries = list(dest.iterdir())
-    if len(entries) == 1 and entries[0].is_dir() and ((entries[0] / "include").exists() or (entries[0] / "lib").exists()):
-        return entries[0]
-
     return dest
 
 
