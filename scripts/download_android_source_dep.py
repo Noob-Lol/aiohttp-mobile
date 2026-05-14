@@ -182,7 +182,14 @@ def build_environment(installed: list[InstalledDependency]) -> list[str]:
     if dep := by_name.get("libxml2"):
         assignments.extend([env_assignment("LIBXML2_DIR", str(dep.root))])
     if dep := by_name.get("libxslt"):
-        assignments.extend([env_assignment("LIBXSLT_DIR", str(dep.root))])
+        root = dep.root
+        assignments.extend(
+            [
+                env_assignment("LIBXSLT_DIR", str(root)),
+                env_assignment("XML2_CONFIG", str(root / "bin" / "xml2-config")),
+                env_assignment("XSLT_CONFIG", str(root / "bin" / "xslt-config")),
+            ]
+        )
 
     return assignments
 
