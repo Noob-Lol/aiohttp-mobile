@@ -186,8 +186,8 @@ def build_environment(installed: list[InstalledDependency]) -> list[str]:
         assignments.extend(
             [
                 env_assignment("LIBXSLT_DIR", str(root)),
-                env_assignment("XML2_CONFIG", str(root / "bin" / "xml2-config")),
-                env_assignment("XSLT_CONFIG", str(root / "bin" / "xslt-config")),
+                env_assignment("WITH_XML2_CONFIG", str(root / "bin" / "xml2-config")),
+                env_assignment("WITH_XSLT_CONFIG", str(root / "bin" / "xslt-config")),
             ]
         )
 
