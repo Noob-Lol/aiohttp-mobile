@@ -101,16 +101,16 @@ def maybe_join_list(val: list[str] | str, sep: str = " ") -> str:
     return val
 
 
+def quote_cibw_env_value(value) -> str:
+    # Keep "$VAR" expansion available inside cibuildwheel while protecting
+    # separators such as ":" and spaces from shell token splitting.
+    escaped = str(value).replace("\\", "\\\\").replace('"', '\\"').replace("`", "\\`")
+    return f'"{escaped}"'
+
+
 def serialize_cibw_environment(val) -> str:
     if isinstance(val, dict):
-        # Produce: KEY=value KEY2="value with spaces"
-        parts = []
-        for k, v in val.items():
-            if " " in str(v) or '"' in str(v):
-                parts.append(f'{k}="{v}"')
-            else:
-                parts.append(f"{k}={v}")
-        return " ".join(parts)
+        return " ".join(f"{k}={quote_cibw_env_value(v)}" for k, v in val.items())
     return maybe_join_list(val)
 
 
