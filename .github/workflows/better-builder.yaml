@@ -164,9 +164,9 @@ jobs:
           ANDROID_API_LEVEL:          '24'
           SETUPTOOLS_SCM_PRETEND_VERSION: ${{ matrix.pkg.version }}
         run: |
-          cibw_env="${BASE_CIBW_ENVIRONMENT_ANDROID:-}"
-          if [[ -n "${EXTRA_CIBW_ENVIRONMENT_ANDROID:-}" ]]; then
-            cibw_env="${cibw_env:+$cibw_env }$EXTRA_CIBW_ENVIRONMENT_ANDROID"
+          cibw_env="${EXTRA_CIBW_ENVIRONMENT_ANDROID:-}"
+          if [[ -n "${BASE_CIBW_ENVIRONMENT_ANDROID:-}" ]]; then
+            cibw_env="${cibw_env:+$cibw_env }$BASE_CIBW_ENVIRONMENT_ANDROID"
           fi
           if [[ -n "$cibw_env" ]]; then
             export CIBW_ENVIRONMENT_ANDROID="$cibw_env"
