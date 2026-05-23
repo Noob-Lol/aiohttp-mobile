@@ -130,3 +130,10 @@ name = "bcrypt"
 [[package]]
 name = "argon2-cffi-bindings"
 patch = "sed -i 's/pp3[0-9][0-9]*-//g' {project}/pyproject.toml"
+
+[[package]]
+name = "pillow"
+
+[[package]]
+name = "opencv-python"
+pin = "4.12.0.88"
