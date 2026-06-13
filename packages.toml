@@ -82,7 +82,7 @@ patch = "sed -i 's|^\\([[:space:]]*\\)use_pkg_config()|\\1d=os.environ.get(\"LIB
 
 [[package]]
 name = "cryptography"
-cibw_environment = { OPENSSL_STATIC = "1", CRYPTOGRAPHY_BUILD_OPENSSL_NO_LEGACY = "1" }
+cibw_environment = { OPENSSL_STATIC = "1", OPENSSL_NO_VENDOR = "1" }
 android_source_deps = { openssl = "3.5.6-0" }
 
 #[[package]]
