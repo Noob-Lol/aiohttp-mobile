@@ -168,9 +168,6 @@ jobs:
           if [[ -n "${BASE_CIBW_ENVIRONMENT_ANDROID:-}" ]]; then
             cibw_env="${cibw_env:+$cibw_env }$BASE_CIBW_ENVIRONMENT_ANDROID"
           fi
-          IFS='/' read -r owner repo <<< "$GITHUB_REPOSITORY"
-          index_url="https://${owner}.github.io/${repo}/simple/"
-          cibw_env="${cibw_env:+$cibw_env }PIP_EXTRA_INDEX_URL=$index_url UV_EXTRA_INDEX_URL=$index_url"
           if [[ -n "$cibw_env" ]]; then
             export CIBW_ENVIRONMENT_ANDROID="$cibw_env"
           fi
