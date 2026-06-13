@@ -82,8 +82,9 @@ patch = "sed -i 's|^\\([[:space:]]*\\)use_pkg_config()|\\1d=os.environ.get(\"LIB
 
 [[package]]
 name = "cryptography"
-cibw_environment = { OPENSSL_STATIC = "1", PYO3_CROSS_PYTHON_INCLUDE_DIR = "$(python -c \"import sysconfig; print(sysconfig.get_path('include'))\")" }
+cibw_environment = { OPENSSL_STATIC = "1" }
 android_source_deps = { openssl = "3.5.6-0" }
+patch = "sed 's/.and_then(|p| p.parent())//' {project}/src/rust/cryptography-cffi/build.rs"
 
 #[[package]]
 #name = "numpy"
