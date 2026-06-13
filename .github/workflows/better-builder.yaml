@@ -157,13 +157,12 @@ jobs:
         env:
           CIBW_PLATFORM:              android
           CIBW_ARCHS_ANDROID:         ${{ matrix.arch }}
-          CIBW_BUILD_FRONTEND:        build[uv]
+          CIBW_BUILD_FRONTEND:        build
           CIBW_TEST_SKIP:             '*'
           BASE_CIBW_ENVIRONMENT_ANDROID: ${{ matrix.pkg.cibw_environment || '' }}
           CIBW_BEFORE_BUILD_ANDROID:  ${{ matrix.pkg.cibw_before_build || '' }}
           ANDROID_API_LEVEL:          '24'
           SETUPTOOLS_SCM_PRETEND_VERSION: ${{ matrix.pkg.version }}
-          UV_INDEX_STRATEGY:          unsafe-best-match
         run: |
           cibw_env="${EXTRA_CIBW_ENVIRONMENT_ANDROID:-}"
           if [[ -n "${BASE_CIBW_ENVIRONMENT_ANDROID:-}" ]]; then
@@ -171,7 +170,7 @@ jobs:
           fi
           IFS='/' read -r owner repo <<< "$GITHUB_REPOSITORY"
           index_url="https://${owner}.github.io/${repo}/simple/"
-          cibw_env="${cibw_env:+$cibw_env }PIP_EXTRA_INDEX_URL=$index_url UV_EXTRA_INDEX_URL=$index_url UV_INDEX_STRATEGY=unsafe-best-match"
+          cibw_env="${cibw_env:+$cibw_env }PIP_EXTRA_INDEX_URL=$index_url"
           if [[ -n "$cibw_env" ]]; then
             export CIBW_ENVIRONMENT_ANDROID="$cibw_env"
           fi
