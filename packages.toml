@@ -85,8 +85,8 @@ name = "cryptography"
 cibw_environment = { OPENSSL_STATIC = "1" }
 android_source_deps = { openssl = "3.5.6-0" }
 patch = [
-  'perl -i -0pe "s/let py_ver = lib\n\s+\.file_name\(\)\n\s+\.and_then\(\|s\| s\.to_str\(\)\)\n\s+\.unwrap_or\(\"python3\"\);/let py_ver = env::var(\"PYO3_CROSS_PYTHON_VERSION\").unwrap_or_else(|_| \"python3\".to_string());/" {project}/src/rust/cryptography-cffi/build.rs"',
-  'perl -i -0pe "s/\.parent\(\)\n\s+\.and_then\(\|p\| p\.parent\(\)\)\n\s+\.expect\(\"PYO3_CROSS_LIB_DIR has unexpected layout\"\)/.parent()\n        .expect(\"PYO3_CROSS_LIB_DIR has unexpected layout\")/" {project}/src/rust/cryptography-cffi/build.rs"',
+  'perl -i -0pe "s/let py_ver = lib\n\s+\.file_name\(\)\n\s+\.and_then\(\|s\| s\.to_str\(\)\)\n\s+\.unwrap_or\(\"python3\"\);/let py_ver = env::var(\"PYO3_CROSS_PYTHON_VERSION\").unwrap_or_else(|_| \"python3\".to_string());/" {project}/src/rust/cryptography-cffi/build.rs',
+  'perl -i -0pe "s/\.parent\(\)\n\s+\.and_then\(\|p\| p\.parent\(\)\)\n\s+\.expect\(\"PYO3_CROSS_LIB_DIR has unexpected layout\"\)/.parent()\n        .expect(\"PYO3_CROSS_LIB_DIR has unexpected layout\")/" {project}/src/rust/cryptography-cffi/build.rs',
 ]
 #[[package]]
 #name = "numpy"
