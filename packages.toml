@@ -39,7 +39,6 @@ cibw_environment = { PIP_NO_BINARY = "mypy", CHARSET_NORMALIZER_USE_MYPYC = "1" 
 
 [[package]]
 name = "jh2"
-cibw_before_build = "uv pip install maturin==1.13.0"
 patch = "sed -i 's/abi3-py3[0-9][0-9]*/abi3-py313/g' {project}/Cargo.toml {project}/pyproject.toml"
 
 [[package]]
