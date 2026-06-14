@@ -170,7 +170,7 @@ jobs:
           CIBW_BUILD_FRONTEND:        build[uv]
           CIBW_TEST_SKIP:             '*'
           BASE_CIBW_ENVIRONMENT_ANDROID: ${{ matrix.pkg.cibw_environment || '' }}
-          CIBW_BEFORE_BUILD_ANDROID:  ${{ matrix.pkg.cibw_before_build || '' }}
+          BASE_CIBW_BEFORE_BUILD_ANDROID: ${{ matrix.pkg.cibw_before_build || '' }}
           ANDROID_API_LEVEL:          '24'
           SETUPTOOLS_SCM_PRETEND_VERSION: ${{ matrix.pkg.version }}
           PYO3_PRINT_CONFIG:          ${{ (github.event_name == 'workflow_dispatch' && inputs.debug == true) && '1' || '' }}
@@ -181,6 +181,16 @@ jobs:
           fi
           if [[ -n "$cibw_env" ]]; then
             export CIBW_ENVIRONMENT_ANDROID="$cibw_env"
+          fi
+          CIBW_BEFORE_BUILD_ANDROID=""
+          if find "$SDIST_SOURCE_DIR" -maxdepth 3 -name Cargo.toml -print -quit | grep -q .; then
+            CIBW_BEFORE_BUILD_ANDROID="uv pip install maturin==1.13.1"
+          fi
+          if [[ -n "${BASE_CIBW_BEFORE_BUILD_ANDROID:-}" ]]; then
+            CIBW_BEFORE_BUILD_ANDROID="${CIBW_BEFORE_BUILD_ANDROID:+$CIBW_BEFORE_BUILD_ANDROID && }$BASE_CIBW_BEFORE_BUILD_ANDROID"
+          fi
+          if [[ -n "$CIBW_BEFORE_BUILD_ANDROID" ]]; then
+            export CIBW_BEFORE_BUILD_ANDROID
           fi
           cd "$SDIST_SOURCE_DIR"
           cibuildwheel --output-dir "$GITHUB_WORKSPACE/wheelhouse"
