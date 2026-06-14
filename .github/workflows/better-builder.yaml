@@ -19,6 +19,16 @@ on:
         required: false
         default: false
         type: boolean
+      dry_run:
+        description: 'Build without publishing to release'
+        required: false
+        default: false
+        type: boolean
+      debug:
+        description: 'Enable PYO3_PRINT_CONFIG for debugging (crashes build)'
+        required: false
+        default: false
+        type: boolean
 
 env:
   WHEEL_PY_TAGS: cp313-cp314
@@ -160,9 +170,10 @@ jobs:
           CIBW_BUILD_FRONTEND:        build[uv]
           CIBW_TEST_SKIP:             '*'
           BASE_CIBW_ENVIRONMENT_ANDROID: ${{ matrix.pkg.cibw_environment || '' }}
-          CIBW_BEFORE_BUILD_ANDROID:  ${{ matrix.pkg.cibw_before_build || '' }}
+          BASE_CIBW_BEFORE_BUILD_ANDROID: ${{ matrix.pkg.cibw_before_build || '' }}
           ANDROID_API_LEVEL:          '24'
           SETUPTOOLS_SCM_PRETEND_VERSION: ${{ matrix.pkg.version }}
+          PYO3_PRINT_CONFIG:          ${{ (github.event_name == 'workflow_dispatch' && inputs.debug == true) && '1' || '' }}
         run: |
           cibw_env="${EXTRA_CIBW_ENVIRONMENT_ANDROID:-}"
           if [[ -n "${BASE_CIBW_ENVIRONMENT_ANDROID:-}" ]]; then
@@ -170,6 +181,16 @@ jobs:
           fi
           if [[ -n "$cibw_env" ]]; then
             export CIBW_ENVIRONMENT_ANDROID="$cibw_env"
+          fi
+          CIBW_BEFORE_BUILD_ANDROID=""
+          if find "$SDIST_SOURCE_DIR" -maxdepth 3 -name Cargo.toml -print -quit | grep -q .; then
+            CIBW_BEFORE_BUILD_ANDROID="uv pip install maturin==1.13.0"
+          fi
+          if [[ -n "${BASE_CIBW_BEFORE_BUILD_ANDROID:-}" ]]; then
+            CIBW_BEFORE_BUILD_ANDROID="${CIBW_BEFORE_BUILD_ANDROID:+$CIBW_BEFORE_BUILD_ANDROID && }$BASE_CIBW_BEFORE_BUILD_ANDROID"
+          fi
+          if [[ -n "$CIBW_BEFORE_BUILD_ANDROID" ]]; then
+            export CIBW_BEFORE_BUILD_ANDROID
           fi
           cd "$SDIST_SOURCE_DIR"
           cibuildwheel --output-dir "$GITHUB_WORKSPACE/wheelhouse"
@@ -180,6 +201,27 @@ jobs:
       #   timeout-minutes: 30
       #   with:
       #     limit-access-to-actor: true
+
+      - name: Verify libpython linkage
+        run: |
+          for whl in wheelhouse/*.whl; do
+            echo "Checking $whl"
+            unzip -p "$whl" "*.so" 2>/dev/null | \
+              python3 -c "
+          import sys, subprocess, tempfile, os
+          data = sys.stdin.buffer.read()
+          with tempfile.NamedTemporaryFile(suffix='.so', delete=False) as f:
+              f.write(data); name = f.name
+          out = subprocess.check_output(['readelf', '-d', name], text=True)
+          os.unlink(name)
+          needed = [l for l in out.splitlines() if 'NEEDED' in l]
+          print('\n'.join(needed))
+          has_libpython = any('libpython' in l for l in needed)
+          if not has_libpython:
+              print('ERROR: no libpython in NEEDED', file=sys.stderr)
+              sys.exit(1)
+          "
+          done
       
       - name: Upload artifact
         uses: actions/upload-artifact@v7
@@ -194,7 +236,7 @@ jobs:
   publish:
     name: Publish ${{ matrix.pkg.name }} ${{ matrix.pkg.version }}
     needs: [resolve, build]
-    if: always() && needs.resolve.outputs.any_to_build == 'true'
+    if: always() && needs.resolve.outputs.any_to_build == 'true' && !(github.event_name == 'workflow_dispatch' && inputs.dry_run == true)
     runs-on: ubuntu-latest
     permissions:
       contents: write
