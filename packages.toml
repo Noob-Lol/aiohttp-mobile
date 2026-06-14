@@ -82,7 +82,7 @@ patch = "sed -i 's|^\\([[:space:]]*\\)use_pkg_config()|\\1d=os.environ.get(\"LIB
 
 [[package]]
 name = "cryptography"
-cibw_environment = { OPENSSL_STATIC = "1" }
+cibw_environment = { OPENSSL_STATIC = "1", RUSTFLAGS = "-C link-arg=-lpython3" }
 android_source_deps = { openssl = "3.5.7" }
 patch = [
   'perl -i -0pe "s/let py_ver = lib\n\s+\.file_name\(\)\n\s+\.and_then\(\|s\| s\.to_str\(\)\)\n\s+\.unwrap_or\(\"python3\"\);/let py_ver = \"python3.13\";/" {project}/src/rust/cryptography-cffi/build.rs',
