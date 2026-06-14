@@ -55,8 +55,8 @@ name = "orjson"
 name = "uvloop"
 android_source_deps = { libuv = "1.52.1" }
 patch = [
-    "sed -i 's/self.use_system_libuv = False/self.use_system_libuv = True/; s/self.compiler.add_library(.pthread.)//g' {project}/setup.py",
-    "sed -i '/if self.use_system_libuv:/a \\            d=os.environ.get(\"LIBUV_DIR\"); self.compiler.add_include_dir(os.path.join(d,\"include\")); self.compiler.add_library_dir(os.path.join(d,\"lib\")); self.extensions[-1].extra_objects.append(os.path.join(d,\"lib\",\"libuv.a\"))' {project}/setup.py",
+  "sed -i 's/self.use_system_libuv = False/self.use_system_libuv = True/; s/self.compiler.add_library(.pthread.)//g' {project}/setup.py",
+  "sed -i '/if self.use_system_libuv:/a \\            d=os.environ.get(\"LIBUV_DIR\"); self.compiler.add_include_dir(os.path.join(d,\"include\")); self.compiler.add_library_dir(os.path.join(d,\"lib\")); self.extensions[-1].extra_objects.append(os.path.join(d,\"lib\",\"libuv.a\"))' {project}/setup.py",
 ]
 
 [[package]]
@@ -82,9 +82,12 @@ patch = "sed -i 's|^\\([[:space:]]*\\)use_pkg_config()|\\1d=os.environ.get(\"LIB
 
 [[package]]
 name = "cryptography"
-cibw_environment = { OPENSSL_STATIC = "1", CRYPTOGRAPHY_BUILD_OPENSSL_NO_LEGACY = "1" }
-android_source_deps = { openssl = "3.5.6-0" }
-
+cibw_environment = { OPENSSL_STATIC = "1" }
+android_source_deps = { openssl = "3.5.7" }
+patch = [
+  'perl -i -0pe "s/let py_ver = lib\n\s+\.file_name\(\)\n\s+\.and_then\(\|s\| s\.to_str\(\)\)\n\s+\.unwrap_or\(\"python3\"\);/let py_ver = \"python3.13\";/" {project}/src/rust/cryptography-cffi/build.rs',
+  'perl -i -0pe "s/\.parent\(\)\n\s+\.and_then\(\|p\| p\.parent\(\)\)\n\s+\.expect\(\"PYO3_CROSS_LIB_DIR has unexpected layout\"\)/.parent()\n        .expect(\"PYO3_CROSS_LIB_DIR has unexpected layout\")/" {project}/src/rust/cryptography-cffi/build.rs',
+]
 #[[package]]
 #name = "numpy"
 
