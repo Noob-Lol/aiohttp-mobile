@@ -184,7 +184,7 @@ jobs:
           fi
           CIBW_BEFORE_BUILD_ANDROID=""
           if find "$SDIST_SOURCE_DIR" -maxdepth 3 -name Cargo.toml -print -quit | grep -q .; then
-            CIBW_BEFORE_BUILD_ANDROID="uv pip install maturin==1.13.2"
+            CIBW_BEFORE_BUILD_ANDROID="uv pip install maturin==1.13.3"
           fi
           if [[ -n "${BASE_CIBW_BEFORE_BUILD_ANDROID:-}" ]]; then
             CIBW_BEFORE_BUILD_ANDROID="${CIBW_BEFORE_BUILD_ANDROID:+$CIBW_BEFORE_BUILD_ANDROID && }$BASE_CIBW_BEFORE_BUILD_ANDROID"
