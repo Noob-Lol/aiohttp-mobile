@@ -164,7 +164,7 @@ jobs:
 
       - name: Install maturin (locked version)
         if: steps.wheel-cache.outputs.cache-hit != 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_rebuild == true)
-        run: uv pip install maturin==1.13.0
+        run: uv tool install maturin==1.13.0
 
       - name: Build wheel
         if: steps.wheel-cache.outputs.cache-hit != 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_rebuild == true)
