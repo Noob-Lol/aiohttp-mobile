@@ -201,6 +201,27 @@ jobs:
       #   timeout-minutes: 30
       #   with:
       #     limit-access-to-actor: true
+
+      - name: Verify libpython linkage
+        run: |
+          for whl in wheelhouse/*.whl; do
+            echo "Checking $whl"
+            unzip -p "$whl" "*.so" 2>/dev/null | \
+              python3 -c "
+          import sys, subprocess, tempfile, os
+          data = sys.stdin.buffer.read()
+          with tempfile.NamedTemporaryFile(suffix='.so', delete=False) as f:
+              f.write(data); name = f.name
+          out = subprocess.check_output(['readelf', '-d', name], text=True)
+          os.unlink(name)
+          needed = [l for l in out.splitlines() if 'NEEDED' in l]
+          print('\n'.join(needed))
+          has_libpython = any('libpython' in l for l in needed)
+          if not has_libpython:
+              print('ERROR: no libpython in NEEDED', file=sys.stderr)
+              sys.exit(1)
+          "
+          done
       
       - name: Upload artifact
         uses: actions/upload-artifact@v7
