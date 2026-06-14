@@ -173,7 +173,6 @@ jobs:
           CIBW_BEFORE_BUILD_ANDROID:  ${{ matrix.pkg.cibw_before_build || '' }}
           ANDROID_API_LEVEL:          '24'
           SETUPTOOLS_SCM_PRETEND_VERSION: ${{ matrix.pkg.version }}
-          UV_BUILD_CONSTRAINT:        'build-constraints.txt'
           PYO3_PRINT_CONFIG:          ${{ (github.event_name == 'workflow_dispatch' && inputs.debug == true) && '1' || '' }}
         run: |
           cibw_env="${EXTRA_CIBW_ENVIRONMENT_ANDROID:-}"
