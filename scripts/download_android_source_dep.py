@@ -27,7 +27,7 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
-ANDROID_DEP_REPOS = ["beeware/cpython-android-source-deps", "noob-lol/android-static-libs"]
+ANDROID_DEP_REPOS = ["noob-lol/android-static-libs"]
 # repo was ANDROID_DEP_REPO previously
 RELEASES_API = "https://api.github.com/repos/{repo}/releases"
 RELEASE_DOWNLOAD_BASE = "https://github.com/{repo}/releases/download"
