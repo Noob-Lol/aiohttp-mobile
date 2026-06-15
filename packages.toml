@@ -77,7 +77,7 @@ name = "watchfiles"
 
 [[package]]
 name = "cffi"
-android_source_deps = { libffi = "3.4.4-3" }
+android_source_deps = { libffi = "3.5.2" }
 patch = "sed -i 's|^\\([[:space:]]*\\)use_pkg_config()|\\1d=os.environ.get(\"LIBFFI_ANDROID_DIR\"); include_dirs.append(os.path.join(d,\"include\")); library_dirs.append(os.path.join(d,\"lib\"))|' {project}/setup.py"
 
 [[package]]
