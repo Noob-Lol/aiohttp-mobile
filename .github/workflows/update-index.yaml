@@ -29,7 +29,7 @@ jobs:
       )
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Generate simple index from all releases
         env:
@@ -37,7 +37,7 @@ jobs:
         run: python3 scripts/generate_simple_index.py
 
       - name: Checkout current gh-pages content
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         continue-on-error: true
         with:
           ref: gh-pages
