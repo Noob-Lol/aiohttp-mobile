@@ -52,7 +52,7 @@ jobs:
       any_to_build: ${{ steps.resolve.outputs.any_to_build }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: astral-sh/setup-uv@v8.2.0
         with:
@@ -97,7 +97,7 @@ jobs:
       - if: matrix.pkg.name == '__skip__'
         run: echo "Nothing to build." && exit 0
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: astral-sh/setup-uv@v8.2.0
         with:
