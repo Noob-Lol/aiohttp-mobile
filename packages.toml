@@ -35,7 +35,8 @@ name = "brotli"
 # niquests compiled <3
 [[package]]
 name = "charset_normalizer"
-cibw_environment = { UV_NO_BINARY = "mypy" , UV_NO_BINARY_PACKAGE = 'mypy', CHARSET_NORMALIZER_USE_MYPYC = "1" }
+cibw_environment = { CHARSET_NORMALIZER_USE_MYPYC = "1" }
+cibw_before_build = "uv pip install mypy --no-binary mypy"
 
 [[package]]
 name = "jh2"
