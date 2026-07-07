@@ -60,6 +60,7 @@ name = "librt"
 
 [[package]]
 name = "ast-serialize"
+patch = "sed -i 's/abi3-py3[0-9][0-9]*/abi3-py313/g' {project}/Cargo.toml {project}/pyproject.toml"
 
 # other
 [[package]]
