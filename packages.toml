@@ -36,7 +36,7 @@ name = "brotli"
 [[package]]
 name = "charset_normalizer"
 cibw_environment = { CHARSET_NORMALIZER_USE_MYPYC = "1" }
-cibw_before_build = "uv pip install mypy --no-binary mypy --reinstall --no-deps"
+cibw_before_build = "uv pip install --reinstall-package mypy --no-binary mypy mypy"
 
 [[package]]
 name = "jh2"
