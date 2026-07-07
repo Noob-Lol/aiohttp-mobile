@@ -50,6 +50,17 @@ patch = "sed -i 's/abi3-py3[0-9][0-9]*/abi3-py313/g' {project}/Cargo.toml {proje
 [[package]]
 name = "orjson"
 
+# mypy
+[[package]]
+name = "mypy"
+cibw_environment = { MYPY_USE_MYPYC = 1 }
+
+[[package]]
+name = "librt"
+
+[[package]]
+name = "ast-serialize"
+
 # other
 [[package]]
 name = "uvloop"
