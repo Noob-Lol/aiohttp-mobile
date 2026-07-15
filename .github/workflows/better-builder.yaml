@@ -195,15 +195,12 @@ jobs:
           cd "$SDIST_SOURCE_DIR"
           cibuildwheel --output-dir "$GITHUB_WORKSPACE/wheelhouse"
 
-      - name: Install patchelf
-        if: steps.wheel-cache.outputs.cache-hit != 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_rebuild == true)
-        run: |
-          sudo apt-get update && sudo apt-get install -y patchelf
-
-      - name: Fix ABI3 wheel linkage
-        if: steps.wheel-cache.outputs.cache-hit != 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_rebuild == true)
-        run: |
-          python3 scripts/fix_abi3_wheels.py
+      # - name: Debug with tmate
+      #   if: ${{ failure() && github.event_name == 'workflow_dispatch' }}
+      #   uses: mxschmitt/action-tmate@v3
+      #   timeout-minutes: 30
+      #   with:
+      #     limit-access-to-actor: true
 
       - name: Verify libpython linkage
         run: |
