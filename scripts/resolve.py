@@ -32,12 +32,12 @@ import tomllib
 from std.request import fetch_json
 
 StrMap = dict[str, str]
+AnyVal = str | list[str] | StrMap
 
 
 def normalize(name: str) -> str:
     """PEP 503 normalize a package name."""
     return re.sub(r"[-_.]+", "-", name).strip().lower()
-
 
 
 def pypi_latest(pkg: str) -> str:
@@ -55,7 +55,7 @@ def release_exists(tag: str, repo: str) -> bool:
             text=True,
         )
         if result.returncode == 0:
-            return result.stdout.strip() != ""
+            return bool(result.stdout.strip())
         if "not found" in result.stderr.lower():
             return False
         if attempt < 3:
@@ -115,20 +115,20 @@ def maybe_join_list(val: list[str] | str, sep: str = " ") -> str:
     return val
 
 
-def quote_cibw_env_value(value) -> str:
+def quote_cibw_env_value(value: str) -> str:
     # Keep "$VAR" expansion available inside cibuildwheel while protecting
     # separators such as ":" and spaces from shell token splitting.
     escaped = str(value).replace("\\", "\\\\").replace('"', '\\"').replace("`", "\\`")
     return f'"{escaped}"'
 
 
-def serialize_cibw_environment(val) -> str:
+def serialize_cibw_environment(val: AnyVal) -> str:
     if isinstance(val, dict):
         return " ".join(f"{k}={quote_cibw_env_value(v)}" for k, v in val.items())
     return maybe_join_list(val)
 
 
-def serialize_android_source_deps(val) -> str:
+def serialize_android_source_deps(val: AnyVal) -> str:
     if isinstance(val, dict):
         return " ".join(f"{k}={v}" for k, v in val.items())
     return maybe_join_list(val)
@@ -164,14 +164,18 @@ def resolve_package_specs(package_values: list[str]) -> list[tuple[str, str]]:
     specs: list[tuple[str, str]] = []
     for token in package_tokens:
         if "==" not in token:
-            msg = "package specs must use the form name==version"
-            raise ValueError(msg)
+            pkg_name = token.strip()
+            if not pkg_name:
+                msg = "package specs must be package names or name==version pairs"
+                raise ValueError(msg)
+            specs.append((pkg_name, ""))
+            continue
 
         pkg_name, version_value = token.split("==", 1)
         pkg_name = pkg_name.strip()
         version_value = version_value.strip()
-        if not pkg_name or not version_value:
-            msg = "package specs must use the form name==version"
+        if not pkg_name:
+            msg = "package specs must be package names or name==version pairs"
             raise ValueError(msg)
         specs.append((pkg_name, version_value))
 
@@ -180,7 +184,8 @@ def resolve_package_specs(package_values: list[str]) -> list[tuple[str, str]]:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--package", action="append", default=[], help="Ad-hoc package spec(s) to build (name==version); may be repeated or comma/whitespace-separated")
+    pkg_help = "Ad-hoc package spec(s) to build (package or package==version); may be repeated or comma/whitespace-separated"
+    parser.add_argument("--package", action="append", default=[], help=pkg_help)
     parser.add_argument("--force", action="store_true", help="Build even if the release tag already exists")
     args = parser.parse_args()
 
@@ -235,12 +240,9 @@ def main() -> None:
         matrix_entries = [{"name": "__skip__", "version": "", "tag": ""}]
 
     output_file = os.environ.get("GITHUB_OUTPUT")
-    lines = [
-        f"matrix={json.dumps({'include': matrix_entries})}",
-        f"any_to_build={'true' if any_to_build else 'false'}",
-    ]
+    lines = [f"matrix={json.dumps({'include': matrix_entries})}", f"any_to_build={'true' if any_to_build else 'false'}"]
     if output_file:
-        with Path(output_file).open("a") as f:
+        with Path(output_file).open("a", encoding="utf-8") as f:
             f.write("\n".join(lines) + "\n")
     else:
         print("\n".join(lines))
