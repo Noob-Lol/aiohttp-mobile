@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       package:
-        description: 'Package spec(s) to build (e.g. aiohttp==3.14.0 requests==3.5.0 or aiohttp,requests)'  # bro is building pure-python requests for some reason
+        description: 'Package spec(s) to build (e.g. aiohttp requests==3.5.0 or aiohttp==3.14.0 requests)'  # bro is building pure-python requests for some reason
         required: false
         default: ''
       force_rebuild:
