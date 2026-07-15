@@ -7,11 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       package:
-        description: 'Package name to build (leave blank to check all in packages.toml)'
-        required: false
-        default: ''
-      version:
-        description: 'Exact version (only used with package input; blank = latest)'
+        description: 'Package spec(s) to build (e.g. aiohttp==3.14.0 requests==3.5.0 or aiohttp,requests)'  # bro is building pure-python requests for some reason
         required: false
         default: ''
       force_rebuild:
@@ -63,15 +59,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           INPUT_PACKAGE: ${{ github.event.inputs.package || '' }}
-          INPUT_VERSION: ${{ github.event.inputs.version || '' }}
           INPUT_FORCE_REBUILD: ${{ github.event_name == 'workflow_dispatch' && inputs.force_rebuild == true }}
         run: |
           args=()
           if [[ -n "$INPUT_PACKAGE" ]]; then
             args+=(--package "$INPUT_PACKAGE")
-          fi
-          if [[ -n "$INPUT_VERSION" ]]; then
-            args+=(--version "$INPUT_VERSION")
           fi
           if [[ "$INPUT_FORCE_REBUILD" == "true" ]]; then
             args+=(--force)
