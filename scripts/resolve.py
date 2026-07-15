@@ -15,7 +15,7 @@ Output written to $GITHUB_OUTPUT (or stdout if not set):
   any_to_build - "true" | "false"
 
 Usage:
-    python resolve.py [--package NAME] [--version VER] [--force]
+    python resolve.py [--package SPEC[,SPEC...]] [--force]
 """
 
 import argparse
@@ -147,10 +147,40 @@ def make_candidate(name: str, version: str, pkg_config: StrMap) -> StrMap:
     return entry
 
 
+def expand_csv_values(values: list[str]) -> list[str]:
+    expanded: list[str] = []
+    for value in values:
+        if not value:
+            continue
+        expanded.extend(part.strip() for part in re.split(r"[\s,]+", value) if part.strip())
+    return expanded
+
+
+def resolve_package_specs(package_values: list[str]) -> list[tuple[str, str]]:
+    package_tokens = expand_csv_values(package_values)
+    if not package_tokens:
+        return []
+
+    specs: list[tuple[str, str]] = []
+    for token in package_tokens:
+        if "==" not in token:
+            msg = "package specs must use the form name==version"
+            raise ValueError(msg)
+
+        pkg_name, version_value = token.split("==", 1)
+        pkg_name = pkg_name.strip()
+        version_value = version_value.strip()
+        if not pkg_name or not version_value:
+            msg = "package specs must use the form name==version"
+            raise ValueError(msg)
+        specs.append((pkg_name, version_value))
+
+    return specs
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--package", default="", help="Ad-hoc package name to build (not required to be in packages.toml)")
-    parser.add_argument("--version", default="", help="Exact version to build for --package (omit for latest)")
+    parser.add_argument("--package", action="append", default=[], help="Ad-hoc package spec(s) to build (name==version); may be repeated or comma/whitespace-separated")
     parser.add_argument("--force", action="store_true", help="Build even if the release tag already exists")
     args = parser.parse_args()
 
@@ -162,21 +192,30 @@ def main() -> None:
     configured = {normalize(p["name"]): p for p in config["package"]}
 
     # Build the candidate list
-    # Ad-hoc package (from manual workflow_dispatch input) replaces or
-    # extends the configured list for this run only.
+    # Ad-hoc package(s) (from manual workflow_dispatch input) replace or
+    # extend the configured list for this run only.
     if args.package:
-        pkg_name = normalize(args.package)
-        if pkg_name not in configured:
-            print(
-                f"::warning::'{pkg_name}' is not in packages.toml — "
-                "it will be built this run but won't be tracked automatically.",
-                file=sys.stderr,
-            )
-            pkg_config = {}
-        else:
-            pkg_config = configured[pkg_name]
-        version = args.version.strip() or pypi_latest(pkg_name)
-        candidates = [make_candidate(pkg_name, version, pkg_config)]
+        try:
+            package_specs = resolve_package_specs(args.package)
+        except ValueError as exc:
+            print(f"::warning::{exc}", file=sys.stderr)
+            package_specs = []
+
+        candidates = []
+        for pkg_name, version_value in package_specs:
+            normalized_name = normalize(pkg_name)
+            if normalized_name not in configured:
+                print(
+                    f"::warning::'{normalized_name}' is not in packages.toml — "
+                    "it will be built this run but won't be tracked automatically.",
+                    file=sys.stderr,
+                )
+                pkg_config = {}
+            else:
+                pkg_config = configured[normalized_name]
+
+            version = version_value.strip() or pypi_latest(normalized_name)
+            candidates.append(make_candidate(normalized_name, version, pkg_config))
     else:
 
         def process_pkg(pkg: StrMap) -> StrMap:
