@@ -202,8 +202,10 @@ jobs:
       #   with:
       #     limit-access-to-actor: true
 
-      - name: Verify libpython linkage
+      - name: Verify and fix libpython linkage
         run: |
+          uv run scripts/fix_abi3_linkage.py wheelhouse
+
           for whl in wheelhouse/*.whl; do
             echo "Checking $whl"
             unzip -p "$whl" "*.so" 2>/dev/null | \

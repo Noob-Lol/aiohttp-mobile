@@ -17,15 +17,13 @@ from __future__ import annotations
 
 import argparse
 import io
-import json
 import shutil
 import sys
 import tarfile
-import time
-import urllib.error
-import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
+
+from std.request import fetch_bytes, fetch_json
 
 ANDROID_DEP_REPOS = ["beeware/cpython-android-source-deps", "noob-lol/android-static-libs"]
 # repo was ANDROID_DEP_REPO previously
@@ -52,27 +50,6 @@ class InstalledDependency:
     version: str
     repo: str
     root: Path
-
-
-def fetch_json(url: str) -> object:
-    return json.loads(fetch_bytes(url).decode())
-
-
-def fetch_bytes(url: str) -> bytes:
-    last_error: Exception | None = None
-    for attempt in range(4):
-        try:
-            request = urllib.request.Request(url, headers={"User-Agent": "aiohttp-mobile-builder"})
-            with urllib.request.urlopen(request, timeout=60) as response:
-                return response.read()
-        except (urllib.error.URLError, TimeoutError) as exc:
-            last_error = exc
-            if attempt == 3:
-                break
-            time.sleep(2**attempt)
-
-    msg = f"failed to download {url}"
-    raise RuntimeError(msg) from last_error
 
 
 def parse_dependency_spec(spec: str) -> DependencySpec:

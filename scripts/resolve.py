@@ -26,10 +26,10 @@ import re
 import subprocess
 import sys
 import time
-import urllib.request
 from pathlib import Path
 
 import tomllib
+from std.request import fetch_json
 
 StrMap = dict[str, str]
 
@@ -39,21 +39,10 @@ def normalize(name: str) -> str:
     return re.sub(r"[-_.]+", "-", name).strip().lower()
 
 
+
 def pypi_latest(pkg: str) -> str:
     url = f"https://pypi.org/pypi/{pkg}/json"
-    last_error: Exception | None = None
-    for attempt in range(4):
-        try:
-            with urllib.request.urlopen(url, timeout=20) as r:
-                return json.load(r)["info"]["version"]
-        except Exception as exc:  # network/HTTP errors are transient often enough to retry
-            last_error = exc
-            if attempt == 3:
-                break
-            time.sleep(2**attempt)
-    assert last_error is not None
-    msg = f"Failed to fetch latest version for {pkg!r} from PyPI"
-    raise RuntimeError(msg) from last_error
+    return fetch_json(url)["info"]["version"]
 
 
 def release_exists(tag: str, repo: str) -> bool:
@@ -62,6 +51,7 @@ def release_exists(tag: str, repo: str) -> bool:
         result = subprocess.run(
             ["gh", "release", "view", tag, "--repo", repo, "--json", "tagName", "--jq", ".tagName"],
             capture_output=True,
+            check=False,
             text=True,
         )
         if result.returncode == 0:
@@ -75,20 +65,44 @@ def release_exists(tag: str, repo: str) -> bool:
     raise RuntimeError(msg)
 
 
+def pypi_release_files(pkg: str, version: str) -> list[StrMap]:
+    url = f"https://pypi.org/pypi/{pkg}/{version}/json"
+    return fetch_json(url).get("urls", [])
+
+
+def has_android_wheel_in_release_files(files: list[StrMap]) -> bool:
+    for entry in files:
+        filename = str(entry.get("filename", ""))
+        if not filename.endswith(".whl"):
+            continue
+        if "android" in filename.lower():
+            return True
+    return False
+
+
+def pypi_has_android_wheel(pkg: str, version: str) -> bool:
+    return has_android_wheel_in_release_files(pypi_release_files(pkg, version))
+
+
 def filter_matrix(candidates: list[StrMap], repo: str, *, force: bool) -> list[StrMap]:
     matrix_entries: list[StrMap] = []
 
-    def check_release(c: StrMap) -> tuple[StrMap, str, bool]:
+    def check_release(c: StrMap) -> tuple[StrMap, str, str | None]:
         tag = f"{c['name']}-v{c['version']}"
-        exists = not force and release_exists(tag, repo)
-        return c, tag, exists
+        if force:
+            return c, tag, None
+        if release_exists(tag, repo):
+            return c, tag, "release"
+        if pypi_has_android_wheel(c["name"], c["version"]):
+            return c, tag, "pypi"
+        return c, tag, None
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
         results = list(executor.map(check_release, candidates))
 
-    for c, tag, exists in results:
-        if exists:
-            print(f"  SKIP  {tag}", file=sys.stderr)
+    for c, tag, skip_reason in results:
+        if skip_reason is not None:
+            print(f"  SKIP  {tag} ({skip_reason})", file=sys.stderr)
             continue
         print(f"  BUILD {tag}", file=sys.stderr)
         matrix_entries.append({**c, "tag": tag})
@@ -140,7 +154,7 @@ def main() -> None:
     parser.add_argument("--force", action="store_true", help="Build even if the release tag already exists")
     args = parser.parse_args()
 
-    repo = os.environ["GITHUB_REPOSITORY"]
+    repo = os.getenv("GITHUB_REPOSITORY", "Noob-Lol/aiohttp-mobile")
 
     # Load config
     with Path("packages.toml").open("rb") as f:

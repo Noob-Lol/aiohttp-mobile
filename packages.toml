@@ -10,8 +10,9 @@
 #   android_source_deps – Android native deps in form { lib = "version-rev" } (optional)
 
 # aiohttp + deps
-[[package]]
-name = "aiohttp"
+# [[package]]
+# name = "aiohttp"
+# aiohttp 3.14.0+ got official Android (and iOS) wheels, so no need for this anymore
 
 [[package]]
 name = "frozenlist"
