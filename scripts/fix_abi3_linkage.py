@@ -34,12 +34,13 @@ VERSIONED_LIBPYTHON = re.compile(r"^libpython3\.\d+\.so$")
 
 def compute_rpath(so_path: Path, wheel_root: Path) -> str:
     """
-    Number of directory levels from the .so up to the wheel root,
-    plus one more level to get from site-packages/ up to lib/
-    once installed.
+    Number of directory levels from the .so up to the wheel root
+    (== site-packages/ once installed), plus two more levels to
+    reach lib/:
+        site-packages/ -> pythonX.Y/ -> lib/
     """
     rel = so_path.parent.relative_to(wheel_root)
-    depth = len(rel.parts) + 1
+    depth = len(rel.parts) + 2
     return "/".join([".."] * depth)
 
 
