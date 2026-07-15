@@ -1,0 +1,32 @@
+line-length = 127
+indent-width = 4
+[lint]
+select = ["ALL"]
+ignore = [
+    "CPY001",
+    "D",
+    "DOC",
+    "S",
+    "T20",
+    "E501",
+    "RUF012",
+    "UP040",
+    "UP036",
+    "S104",
+    "PERF203",
+    "PLR2004",
+    "PLR0904",
+    "PLR6301",
+    "RUF029",
+    "COM812",
+]
+preview = true
+fixable = ["ALL"]
+[format]
+preview = true
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = true
+
+[lint.pydocstyle]
+convention = "google"
