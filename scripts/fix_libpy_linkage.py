@@ -30,6 +30,7 @@ import zipfile
 from pathlib import Path
 
 VERSIONED_LIBPYTHON = re.compile(r"^libpython3\.\d+\.so$")
+STABLE_LIB = "libpython3.so"
 
 
 def compute_rpath(so_path: Path, wheel_root: Path) -> str:
@@ -45,12 +46,7 @@ def compute_rpath(so_path: Path, wheel_root: Path) -> str:
 
 
 def get_needed(so_path: Path) -> list[str]:
-    result = subprocess.run(
-        ["patchelf", "--print-needed", str(so_path)],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
+    result = subprocess.run(["patchelf", "--print-needed", str(so_path)], capture_output=True, text=True, check=True)
     return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
 
@@ -61,12 +57,9 @@ def fix_so(so_path: Path, wheel_root: Path) -> bool:
         return False
 
     for entry in versioned_entries:
-        if entry == "libpython3.so":
+        if entry == STABLE_LIB:
             continue
-        subprocess.run(
-            ["patchelf", "--replace-needed", entry, "libpython3.so", str(so_path)],
-            check=True,
-        )
+        subprocess.run(["patchelf", "--replace-needed", entry, STABLE_LIB, str(so_path)], check=True)
 
     rpath = f"$ORIGIN/{compute_rpath(so_path, wheel_root)}"
     # NOTE: --set-rpath takes the rpath value and the file as two
@@ -76,10 +69,18 @@ def fix_so(so_path: Path, wheel_root: Path) -> bool:
     return True
 
 
-def fix_wheel(whl: Path) -> None:
-    if "abi3" not in whl.name:
-        return
+def check_py_link(wheel_root: Path) -> None:
+    for so_path in wheel_root.rglob("*.so"):
+        print(f"  checking {so_path.relative_to(wheel_root)}")
+        needed = get_needed(so_path)
+        for line in needed:
+            print(f"    {line}")
+        if not any("libpython" in line for line in needed):
+            msg = f"{so_path.relative_to(wheel_root)}: no libpython in NEEDED"
+            raise RuntimeError(msg)
 
+
+def fix_wheel(whl: Path) -> None:
     tmp = Path(tempfile.mkdtemp())
     try:
         with zipfile.ZipFile(whl) as z:
@@ -89,6 +90,8 @@ def fix_wheel(whl: Path) -> None:
         for so in tmp.rglob("*.abi3.so"):
             if fix_so(so, tmp):
                 changed = True
+
+        check_py_link(tmp)
 
         if not changed:
             return
