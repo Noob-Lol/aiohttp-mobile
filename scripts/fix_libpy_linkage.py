@@ -69,15 +69,24 @@ def fix_so(so_path: Path, wheel_root: Path) -> bool:
     return True
 
 
+def is_extension_module(so_path: Path) -> bool:
+    result = subprocess.run(["readelf", "-sW", str(so_path)], capture_output=True, text=True, check=True)
+    return "PyInit_" in result.stdout
+
+
 def check_py_link(wheel_root: Path) -> None:
     for so_path in wheel_root.rglob("*.so"):
         print(f"  checking {so_path.relative_to(wheel_root)}")
         needed = get_needed(so_path)
         for line in needed:
             print(f"    {line}")
+        if not is_extension_module(so_path):
+            print("  not an extension module")
+            continue
         if not any("libpython" in line for line in needed):
             msg = f"{so_path.relative_to(wheel_root)}: no libpython in NEEDED"
             raise RuntimeError(msg)
+        print("  OK")
 
 
 def fix_wheel(whl: Path) -> None:
@@ -108,7 +117,7 @@ def fix_wheel(whl: Path) -> None:
 
 def main() -> None:
     if len(sys.argv) != 2:
-        print("usage: fix_abi3_linkage.py <wheelhouse-dir>", file=sys.stderr)
+        print(f"usage: {Path(sys.argv[0]).name} <wheelhouse-dir>", file=sys.stderr)
         sys.exit(1)
 
     wheelhouse = Path(sys.argv[1])
