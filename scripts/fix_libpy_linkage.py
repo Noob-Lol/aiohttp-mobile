@@ -107,7 +107,7 @@ def check_py_link(wheel_root: Path) -> None:
         for line in needed:
             print(f"    {line}")
         if not is_extension_module(so_path):
-            print("  not an extension module")
+            print("  OK (not an extension module)")
             continue
         if not any("libpython" in line for line in needed):
             msg = f"{so_path.relative_to(wheel_root)}: no libpython in NEEDED"
