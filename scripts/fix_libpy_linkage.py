@@ -27,10 +27,36 @@ import subprocess
 import sys
 import tempfile
 import zipfile
+from collections.abc import Callable
 from pathlib import Path
+from typing import ParamSpec, TypeVar
 
+P = ParamSpec("P")
+R = TypeVar("R")
 VERSIONED_LIBPYTHON = re.compile(r"^libpython3\.\d+\.so$")
 STABLE_LIB = "libpython3.so"
+
+
+def make_runner(main_cmd: str | list[str], _target: Callable[P, R] = subprocess.run) -> Callable[P, R]:
+    """Create a subprocess runner for the given main command. Check is True by default."""
+
+    def runner(*args: P.args, **kwargs: P.kwargs) -> R:
+        check = kwargs.pop("check", True)
+        exe = main_cmd
+        cmd, *rest = args or ([],)
+        if isinstance(exe, str):
+            exe = [exe]
+        if isinstance(cmd, (str, bytes)):
+            cmd = [cmd]
+        # trick to not lose typing
+        full_cmd = exe + cmd  # type: ignore[arg-type]
+        return subprocess.run(full_cmd, *rest, check=check, **kwargs)  # type: ignore[arg-type]
+
+    return runner
+
+
+patchelf = make_runner("patchelf")
+readelf = make_runner("readelf")
 
 
 def compute_rpath(so_path: Path, wheel_root: Path) -> str:
@@ -46,7 +72,7 @@ def compute_rpath(so_path: Path, wheel_root: Path) -> str:
 
 
 def get_needed(so_path: Path) -> list[str]:
-    result = subprocess.run(["patchelf", "--print-needed", str(so_path)], capture_output=True, text=True, check=True)
+    result = patchelf(["--print-needed", str(so_path)], capture_output=True, text=True)
     return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
 
@@ -59,18 +85,18 @@ def fix_so(so_path: Path, wheel_root: Path) -> bool:
     for entry in versioned_entries:
         if entry == STABLE_LIB:
             continue
-        subprocess.run(["patchelf", "--replace-needed", entry, STABLE_LIB, str(so_path)], check=True)
+        patchelf(["--replace-needed", entry, STABLE_LIB, str(so_path)])
 
     rpath = f"$ORIGIN/{compute_rpath(so_path, wheel_root)}"
     # NOTE: --set-rpath takes the rpath value and the file as two
     # separate arguments -- not one combined string.
-    subprocess.run(["patchelf", "--set-rpath", rpath, str(so_path)], check=True)
+    patchelf(["--set-rpath", rpath, str(so_path)])
     print(f"  patched {so_path.relative_to(wheel_root)} -> RPATH={rpath}")
     return True
 
 
 def is_extension_module(so_path: Path) -> bool:
-    result = subprocess.run(["readelf", "-sW", str(so_path)], capture_output=True, text=True, check=True)
+    result = readelf(["-sW", str(so_path)], capture_output=True, text=True)
     return "PyInit_" in result.stdout
 
 
