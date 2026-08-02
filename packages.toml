@@ -64,6 +64,16 @@ name = "librt"
 name = "ast-serialize"
 patch = "sed -i 's/abi3-py3[0-9][0-9]*/abi3-py313/g' {project}/Cargo.toml {project}/pyproject.toml"
 
+# pydantic
+[[package]]
+name = "pydantic_core"
+
+[[package]]
+name = "pydantic-monty"
+
+[[package]]
+name = "jiter"
+
 # other
 [[package]]
 name = "uvloop"
@@ -84,9 +94,6 @@ name = "msgspec"
 name = "websockets"
 
 [[package]]
-name = "pydantic_core"
-
-[[package]]
 name = "watchfiles"
 
 [[package]]
@@ -104,9 +111,6 @@ patch = [
 ]
 #[[package]]
 #name = "numpy"
-
-[[package]]
-name = "jiter"
 
 [[package]]
 name = "hiredis"
