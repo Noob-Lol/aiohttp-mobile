@@ -70,7 +70,10 @@ name = "pydantic_core"
 
 [[package]]
 name = "pydantic-monty"
-patch = "sed -i 's|Path::new(\"pyproject.toml\")|Path::new(concat!(env!(\"CARGO_MANIFEST_DIR\"), \"/pyproject.toml\"))|' {project}/crates/monty-python/build.rs"
+patch = [
+  'pt="pyproject.toml"; pp="pyproject_path"; ppb="pyproject_path_buf"',
+  'sed -i "s|let ${pp} = Path::new(\"${pt}\");|let ${ppb} = Path::new(\&env::var(\"CARGO_MANIFEST_DIR\").unwrap()).join(\"${pt}\"); let ${pp} = ${ppb}.as_path();|" {project}/crates/monty-python/build.rs',
+]
 
 [[package]]
 name = "jiter"
