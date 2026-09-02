@@ -152,5 +152,5 @@ name = "bcrypt"
 name = "argon2-cffi-bindings"
 patch = [
   "sed -i 's/pp3[0-9][0-9]*-//g' {project}/pyproject.toml",
-  "sed -i /python_add_library(_ffi MODULE/a target_link_libraries(_ffi PRIVATE ${{Python_LIBRARIES}})' {project}/CMakeLists.txt",
+  "sed -i '/python_add_library(_ffi MODULE/a target_link_libraries(_ffi PRIVATE ${{Python_LIBRARIES}})' {project}/CMakeLists.txt",
 ]
