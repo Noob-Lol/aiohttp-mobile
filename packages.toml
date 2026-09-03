@@ -150,7 +150,5 @@ name = "bcrypt"
 
 [[package]]
 name = "argon2-cffi-bindings"
-patch = [
-  "sed -i 's/pp3[0-9][0-9]*-//g' {project}/pyproject.toml",
-  "sed -i '/python_add_library(_ffi/a target_link_libraries(_ffi PRIVATE -lpython3)' {project}/CMakeLists.txt",
-]
+cibw_environment = { CMAKE_MODULE_LINKER_FLAGS = "-lpython3", SKBUILD_CMAKE_ARGS = "-DCMAKE_MODULE_LINKER_FLAGS=-lpython3" }
+patch = "sed -i 's/pp3[0-9][0-9]*-//g' {project}/pyproject.toml"
