@@ -6,7 +6,9 @@
 #   pin               – lock to a specific version; omit to always build latest
 #   cibw_environment  – extra env vars for CIBW_ENVIRONMENT_ANDROID (optional)
 #   cibw_before_build – commands to run before building via CIBW_BEFORE_BUILD_ANDROID (optional)
-#   patch             – arbitrary commands before the "before build" if it's too late
+#   recipes           – list of built-in recipes e.g. ["abi3_min_version"] (optional)
+#   patches           – compact list of search/replace or regex patches (optional)
+#   patch             – legacy shell commands before build (optional)
 #   android_source_deps – Android native deps in form { lib = "version-rev" } (optional)
 
 # aiohttp + deps
@@ -41,12 +43,12 @@ cibw_before_build = "uv pip install --no-build-isolation --no-deps --reinstall-p
 
 [[package]]
 name = "jh2"
-patch = "sed -i 's/abi3-py3[0-9][0-9]*/abi3-py313/g' {project}/Cargo.toml {project}/pyproject.toml"
+recipes = ["abi3_min_version"]
 
 [[package]]
 name = "qh3"
 cibw_environment = { BINDGEN_EXTRA_CLANG_ARGS = "--sysroot=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot" }
-patch = "sed -i 's/abi3-py3[0-9][0-9]*/abi3-py313/g' {project}/Cargo.toml {project}/pyproject.toml"
+recipes = ["abi3_min_version"]
 
 # speedups
 [[package]]
@@ -62,7 +64,7 @@ name = "librt"
 
 [[package]]
 name = "ast-serialize"
-patch = "sed -i 's/abi3-py3[0-9][0-9]*/abi3-py313/g' {project}/Cargo.toml {project}/pyproject.toml"
+recipes = ["abi3_min_version"]
 
 # pydantic
 [[package]]
@@ -78,14 +80,17 @@ name = "jiter"
 [[package]]
 name = "uvloop"
 android_source_deps = { libuv = "1.52.1" }
-patch = [
-  "sed -i 's/self.use_system_libuv = False/self.use_system_libuv = True/; s/self.compiler.add_library(.pthread.)//g' {project}/setup.py",
-  "sed -i '/if self.use_system_libuv:/a \\            d=os.environ.get(\"LIBUV_DIR\"); self.compiler.add_include_dir(os.path.join(d,\"include\")); self.compiler.add_library_dir(os.path.join(d,\"lib\")); self.extensions[-1].extra_objects.append(os.path.join(d,\"lib\",\"libuv.a\"))' {project}/setup.py",
+patches = [
+  { file = "setup.py", search = "self.use_system_libuv = False", replace = "self.use_system_libuv = True" },
+  { file = "setup.py", pattern = 'self\.compiler\.add_library\(.pthread.\)', replace = "" },
+  { file = "setup.py", after = "if self.use_system_libuv:", insert = '            d = os.environ.get("LIBUV_DIR"); self.compiler.add_include_dir(os.path.join(d, "include")); self.compiler.add_library_dir(os.path.join(d, "lib")); self.extensions[-1].extra_objects.append(os.path.join(d, "lib", "libuv.a"))' },
 ]
 
 [[package]]
 name = "psutil"
-patch = "sed -i 's/sys.platform.startswith(\"linux\")/sys.platform.startswith((\"linux\", \"android\"))/g' {project}/psutil/_common.py"
+patches = [
+  { file = "psutil/_common.py", search = 'sys.platform.startswith("linux")', replace = 'sys.platform.startswith(("linux", "android"))' },
+]
 
 [[package]]
 name = "msgspec"
@@ -99,15 +104,17 @@ name = "watchfiles"
 [[package]]
 name = "cffi"
 android_source_deps = { libffi = "3.4.4-3" }
-patch = "sed -i 's|^\\([[:space:]]*\\)use_pkg_config()|\\1d=os.environ.get(\"LIBFFI_ANDROID_DIR\"); include_dirs.append(os.path.join(d,\"include\")); library_dirs.append(os.path.join(d,\"lib\"))|' {project}/setup.py"
+patches = [
+  { file = "setup.py", pattern = '^(\s*)use_pkg_config\(\)', replace = '\1d = os.environ.get("LIBFFI_ANDROID_DIR"); include_dirs.append(os.path.join(d, "include")); library_dirs.append(os.path.join(d, "lib"))' },
+]
 
 [[package]]
 name = "cryptography"
 cibw_environment = { OPENSSL_STATIC = "1" }
 android_source_deps = { openssl = "3.5.8" }
-patch = [
-  'perl -i -0pe "s/let py_ver = lib\n\s+\.file_name\(\)\n\s+\.and_then\(\|s\| s\.to_str\(\)\)\n\s+\.unwrap_or\(\"python3\"\);/let py_ver = \"python3.13\";/" {project}/src/rust/cryptography-cffi/build.rs',
-  'perl -i -0pe "s/\.parent\(\)\n\s+\.and_then\(\|p\| p\.parent\(\)\)\n\s+\.expect\(\"PYO3_CROSS_LIB_DIR has unexpected layout\"\)/.parent()\n        .expect(\"PYO3_CROSS_LIB_DIR has unexpected layout\")/" {project}/src/rust/cryptography-cffi/build.rs',
+patches = [
+  { file = "src/rust/cryptography-cffi/build.rs", pattern = 'let py_ver = lib\s+\.file_name\(\)\s+\.and_then\(\|s\| s\.to_str\(\)\)\s+\.unwrap_or\("python3"\);', replace = 'let py_ver = "python3.13";' },
+  { file = "src/rust/cryptography-cffi/build.rs", pattern = '\.parent\(\)\s+\.and_then\(\|p\| p\.parent\(\)\)\s+\.expect\("PYO3_CROSS_LIB_DIR has unexpected layout"\)', replace = '.parent()\n        .expect("PYO3_CROSS_LIB_DIR has unexpected layout")' },
 ]
 #[[package]]
 #name = "numpy"
@@ -125,7 +132,9 @@ name = "audioop-lts"
 name = "lxml"
 cibw_environment = { STATIC = "1" }
 android_source_deps = { libxslt = "1.1.45" }
-patch = "sed -i 's|shell=True,|shell=True, executable=\"/bin/sh\",|g' {project}/setupinfo.py"
+patches = [
+  { file = "setupinfo.py", search = "shell=True,", replace = 'shell=True, executable="/bin/sh",' },
+]
 
 [[package]]
 name = "zstandard"
@@ -150,7 +159,7 @@ name = "bcrypt"
 
 [[package]]
 name = "argon2-cffi-bindings"
-patch = [
-  "sed -i 's/pp3[0-9][0-9]*-//g' {project}/pyproject.toml",
-  "sed -i '/python_add_library(_ffi/a target_link_libraries(_ffi PRIVATE python${Python_VERSION_MAJOR}.${Python_VERSION_MINOR})' {project}/CMakeLists.txt",
+patches = [
+  { file = "pyproject.toml", pattern = 'pp3\d+-', replace = "" },
+  { file = "CMakeLists.txt", after = "python_add_library(_ffi MODULE ${SOURCES})", insert = "target_link_libraries(_ffi PRIVATE python${Python_VERSION_MAJOR}.${Python_VERSION_MINOR})" },
 ]

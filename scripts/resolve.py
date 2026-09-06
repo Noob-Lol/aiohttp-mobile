@@ -140,8 +140,6 @@ def make_candidate(name: str, version: str, pkg_config: StrMap) -> StrMap:
         entry["cibw_environment"] = serialize_cibw_environment(pkg_config["cibw_environment"])
     if "cibw_before_build" in pkg_config:
         entry["cibw_before_build"] = maybe_join_list(pkg_config["cibw_before_build"], " && ")
-    if "patch" in pkg_config:
-        entry["patch"] = maybe_join_list(pkg_config["patch"], " && ")
     if "android_source_deps" in pkg_config:
         entry["android_source_deps"] = serialize_android_source_deps(pkg_config["android_source_deps"])
     return entry
