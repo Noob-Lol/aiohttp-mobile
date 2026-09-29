@@ -143,7 +143,7 @@ class SdistPatcher:
         return "\n".join(lines)
 
     def apply_recipe_abi3_min_version(self, target_tag: str = DEFAULT_ABI3_TAG) -> None:
-        """Rewrite the first abi3-py3X marker to the minimum supported version in Cargo.toml and pyproject.toml."""
+        """Rewrite the active abi3-py3X marker to target_tag in Cargo.toml and pyproject.toml."""
         target_files = ["Cargo.toml", "pyproject.toml"]
         pattern = re.compile(r"abi3-py3\d+")
 
@@ -159,15 +159,28 @@ class SdistPatcher:
                 self.log_skip(rel_path, f"error reading file: {exc}")
                 continue
 
-            new_content, count = pattern.subn(target_tag, content, count=1)
-            if count == 0:
+            match = pattern.search(content)
+            if not match:
                 self.log_skip(rel_path, f"pattern '{pattern.pattern}' not found")
                 continue
+
+            old_tag = match.group(0)
+            if old_tag == target_tag:
+                self.log_skip(rel_path, f"already at target version '{target_tag}'")
+                continue
+
+            if target_tag in content:
+                # Target feature is already defined; only update the default/first reference
+                new_content, count = pattern.subn(target_tag, content, count=1)
+            else:
+                # Replace occurrences of this specific tag (updating both default reference and its definition)
+                old_tag_rx = re.compile(rf"\b{re.escape(old_tag)}\b")
+                new_content, count = old_tag_rx.subn(target_tag, content)
 
             diff = generate_diff(content, new_content, rel_path)
             if not self.dry_run:
                 file_path.write_text(new_content, encoding="utf-8")
-            self.log_applied(rel_path, f"updated ABI3 marker to '{target_tag}'", diff)
+            self.log_applied(rel_path, f"updated {count} occurrence(s) of '{old_tag}' to '{target_tag}'", diff)
 
     def apply_inline_patch(self, patch_def: dict[str, PatchConfig]) -> None:
         """Apply an inline search/replace, regex, or insertion patch definition."""
