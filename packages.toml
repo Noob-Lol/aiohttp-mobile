@@ -100,6 +100,7 @@ name = "websockets"
 
 [[package]]
 name = "watchfiles"
+recipes = ["abi3_min_version"]
 
 [[package]]
 name = "cffi"
