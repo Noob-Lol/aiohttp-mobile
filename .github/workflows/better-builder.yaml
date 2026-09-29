@@ -26,9 +26,6 @@ on:
         default: false
         type: boolean
 
-env:
-  WHEEL_PY_TAGS: cp313-cp314
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -103,7 +100,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: wheelhouse
-          key: wheel-android-${{ matrix.arch }}-${{ matrix.pkg.name }}-${{ matrix.pkg.version }}-${{ env.WHEEL_PY_TAGS }}
+          key: wheel-android-${{ matrix.arch }}-${{ matrix.pkg.name }}-${{ matrix.pkg.version }}
 
       - name: Download and unpack sdist
         if: steps.wheel-cache.outputs.cache-hit != 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_rebuild == true)
@@ -117,13 +114,9 @@ jobs:
          echo "SDIST_SOURCE_DIR=${SRCDIR%/}" >> "$GITHUB_ENV"
 
       - name: Patch sdist
-        if: matrix.pkg.patch != '' && (steps.wheel-cache.outputs.cache-hit != 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_rebuild == true))
-        env:
-          PATCH: ${{ matrix.pkg.patch }}
+        if: steps.wheel-cache.outputs.cache-hit != 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_rebuild == true)
         run: |
-          PATCH="${PATCH//\{project\}/$SDIST_SOURCE_DIR}"
-          echo "Applying patch: $PATCH"
-          bash -c "$PATCH"
+          uv run scripts/patch_sdist.py "${{ matrix.pkg.name }}" "${{ matrix.pkg.version }}" "$SDIST_SOURCE_DIR"
 
       - name: Download Android source deps
         if: matrix.pkg.android_source_deps != null && matrix.pkg.android_source_deps != '' && (steps.wheel-cache.outputs.cache-hit != 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_rebuild == true))

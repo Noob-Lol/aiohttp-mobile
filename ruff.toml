@@ -3,22 +3,22 @@ indent-width = 4
 [lint]
 select = ["ALL"]
 ignore = [
-    "CPY001",
+    "missing-copyright-notice",
     "D",
     "DOC",
     "S",
     "T20",
-    "E501",
-    "RUF012",
-    "UP040",
-    "UP036",
-    "S104",
-    "PERF203",
-    "PLR2004",
-    "PLR0904",
-    "PLR6301",
-    "RUF029",
-    "COM812",
+    "line-too-long",
+    "mutable-class-default",
+    "non-pep695-type-alias",
+    "outdated-version-block",
+    "hardcoded-bind-all-interfaces",
+    "try-except-in-loop",
+    "magic-value-comparison",
+    "too-many-public-methods",
+    "no-self-use",
+    "unused-async",
+    "missing-trailing-comma",
 ]
 preview = true
 fixable = ["ALL"]
