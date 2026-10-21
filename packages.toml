@@ -58,6 +58,10 @@ name = "orjson"
 [[package]]
 name = "mypy"
 cibw_environment = { MYPY_USE_MYPYC = 1 }
+patches = [
+  # Android skips terminal color initialization; mypyc still needs the attribute type.
+  { file = "mypy/util.py", before = "        self.hide_error_codes = hide_error_codes", insert = "        self.colors: dict[str, str] = {}" },
+]
 
 [[package]]
 name = "librt"
@@ -125,6 +129,10 @@ name = "hiredis"
 
 [[package]]
 name = "pymongo"
+patches = [
+  # The upstream development-tool pin also affects cibuildwheel's uv invocations.
+  { file = "pyproject.toml", pattern = '^required-version\s*=\s*"==[^"]+"\s*$', replace = "" },
+]
 
 [[package]]
 name = "audioop-lts"
