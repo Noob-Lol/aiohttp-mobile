@@ -83,7 +83,7 @@ name = "jiter"
 # other
 [[package]]
 name = "uvloop"
-android_source_deps = { libuv = "1.52.1" }
+android_source_deps = "libuv"
 patches = [
   { file = "setup.py", search = "self.use_system_libuv = False", replace = "self.use_system_libuv = True" },
   { file = "setup.py", pattern = 'self\.compiler\.add_library\(.pthread.\)', replace = "" },
@@ -108,7 +108,7 @@ recipes = ["abi3_min_version"]
 
 [[package]]
 name = "cffi"
-android_source_deps = { libffi = "3.4.4-3" }
+android_source_deps = "libffi"
 patches = [
   { file = "setup.py", pattern = '^(\s*)use_pkg_config\(\)', replace = '\1d = os.environ.get("LIBFFI_ANDROID_DIR"); include_dirs.append(os.path.join(d, "include")); library_dirs.append(os.path.join(d, "lib"))' },
 ]
@@ -116,7 +116,7 @@ patches = [
 [[package]]
 name = "cryptography"
 cibw_environment = { OPENSSL_STATIC = "1" }
-android_source_deps = { openssl = "3.5.8" }
+android_source_deps = "openssl"
 patches = [
   { file = "src/rust/cryptography-cffi/build.rs", pattern = 'let py_ver = lib\s+\.file_name\(\)\s+\.and_then\(\|s\| s\.to_str\(\)\)\s+\.unwrap_or\("python3"\);', replace = 'let py_ver = "python3.13";' },
   { file = "src/rust/cryptography-cffi/build.rs", pattern = '\.parent\(\)\s+\.and_then\(\|p\| p\.parent\(\)\)\s+\.expect\("PYO3_CROSS_LIB_DIR has unexpected layout"\)', replace = '.parent()\n        .expect("PYO3_CROSS_LIB_DIR has unexpected layout")' },
@@ -140,7 +140,7 @@ name = "audioop-lts"
 [[package]]
 name = "lxml"
 cibw_environment = { STATIC = "1" }
-android_source_deps = { libxslt = "1.1.45" }
+android_source_deps = "libxslt"
 patches = [
   { file = "setupinfo.py", search = "shell=True,", replace = 'shell=True, executable="/bin/sh",' },
 ]
